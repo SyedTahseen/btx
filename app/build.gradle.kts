@@ -21,10 +21,8 @@ android {
         // While true, "Start BetterX Plus" unlocks Plus locally so you can test it.
         // Set to "false" before publishing (and connect Play Billing).
         buildConfigField("boolean", "TEST_UNLOCK", "true")
-    }
-
-    androidResources {
-        localeFilters += listOf("en")
+        // Keep only English strings from libraries (smaller APK).
+        resourceConfigurations += listOf("en")
     }
 
     buildTypes {

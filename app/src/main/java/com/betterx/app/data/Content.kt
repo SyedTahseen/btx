@@ -57,18 +57,12 @@ object Content {
 
     // -------------------------------------------------------------- assessment
     val questions = listOf(
-        Question("q1", "Confidence", "I feel confident about my body when I'm intimate."),
-        Question("q2", "Confidence", "When things don't go as planned, I can let it go without spiraling."),
-        Question("q3", "Communication", "I can tell a partner what I like and don't like."),
-        Question("q4", "Communication", "I can bring up awkward intimate topics instead of avoiding them."),
-        Question("q5", "Calm", "My mind stays in the moment instead of worrying about how I'm doing."),
-        Question("q6", "Calm", "I can relax my body when I notice tension or pressure."),
-        Question("q7", "Desire", "I feel interest in intimacy about as often as I'd like."),
-        Question("q8", "Desire", "I know what helps me feel in the mood."),
-        Question("q9", "Body", "I notice my arousal building and can tell what pace feels right."),
-        Question("q10", "Body", "I understand how sleep, stress and habits affect my body."),
-        Question("q11", "Connection", "I feel emotionally close and safe with the people I'm intimate with."),
-        Question("q12", "Connection", "Intimacy feels like play and closeness, not a test."),
+        Question("q1", "Confidence", "I feel comfortable and confident in my body when I'm intimate."),
+        Question("q2", "Communication", "I can tell a partner what I like and don't like."),
+        Question("q3", "Calm", "My mind stays in the moment instead of worrying about how I'm doing."),
+        Question("q4", "Desire", "I feel interest in intimacy about as often as I'd like."),
+        Question("q5", "Body", "I notice my arousal building and can tell what pace feels right."),
+        Question("q6", "Connection", "I feel emotionally close and safe with the people I'm intimate with."),
     )
 
     /** 0..100 per domain (higher = stronger). */

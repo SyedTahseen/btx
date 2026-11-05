@@ -1,7 +1,6 @@
 package com.betterx.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,9 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -27,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.betterx.app.data.Completion
 import com.betterx.app.data.Content
 import com.betterx.app.data.Exercise
@@ -34,29 +32,28 @@ import com.betterx.app.data.today
 import kotlinx.coroutines.delay
 
 @Composable
-fun LearnScreen(onCourse: (String) -> Unit) {
+fun LearnScreen(onBack: () -> Unit, onCourse: (String) -> Unit) {
     val d = LocalStore.current.data
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val recommended = d.concerns.mapNotNull { Content.concern(it)?.courseId }.distinct()
     val ordered = Content.courses.sortedBy { if (it.id in recommended) 0 else 1 }
-    ScrollPage("Learn") {
-        Text(
-            "Short lessons plus guided practice. Start with the ones chosen for your goals.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    ScrollPage("Programs", onBack) {
+        Text("Short lessons plus guided practice. The first ones are picked for your goals.", color = muted)
         ordered.forEach { c ->
             val done = c.lessons.indices.count { "${c.id}:$it" in d.lessonsDone }
             SoftCard(onClick = { onCourse(c.id) }) {
                 if (c.id in recommended) {
-                    Text("Recommended for you", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                    Text("For you", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
                 Text(c.title, style = MaterialTheme.typography.titleMedium)
-                Text(c.tagline, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                LinearProgressIndicator(progress = { done.toFloat() / c.lessons.size }, modifier = Modifier.fillMaxWidth())
+                Text(c.tagline, style = MaterialTheme.typography.bodySmall, color = muted)
+                Spacer(Modifier.height(10.dp))
+                ThinBar(done.toFloat() / c.lessons.size)
                 Text(
                     "$done/${c.lessons.size} lessons · ${c.exerciseIds.size} practices",
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(top = 4.dp),
+                    color = muted,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
             }
         }
@@ -70,7 +67,7 @@ fun CourseScreen(id: String, onBack: () -> Unit, onExercise: (String) -> Unit, o
     val d = store.data
     val course = Content.course(id)
     if (course == null) {
-        ScrollPage("Course", onBack) { Text("This course isn't available.") }
+        ScrollPage("Program", onBack) { Text("This program isn't available.") }
         return
     }
     var expanded by remember { mutableIntStateOf(0) }
@@ -85,8 +82,8 @@ fun CourseScreen(id: String, onBack: () -> Unit, onExercise: (String) -> Unit, o
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("${i + 1}. ${lesson.title}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                     when {
-                        locked -> Icon(Icons.Filled.Lock, contentDescription = "Locked")
-                        read -> Icon(Icons.Filled.CheckCircle, contentDescription = "Read", tint = MaterialTheme.colorScheme.secondary)
+                        locked -> Icon(Icons.Filled.Lock, contentDescription = "Locked", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        read -> Icon(Icons.Filled.CheckCircle, contentDescription = "Read", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
                 if (expanded == i && !locked) {
@@ -123,6 +120,7 @@ fun ExerciseScreen(id: String, onBack: () -> Unit) {
 @Composable
 private fun ExerciseContent(ex: Exercise, onBack: () -> Unit) {
     val store = LocalStore.current
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     var remaining by remember { mutableIntStateOf(ex.minutes * 60) }
     var running by remember { mutableStateOf(false) }
     var rating by remember { mutableIntStateOf(0) }
@@ -139,11 +137,11 @@ private fun ExerciseContent(ex: Exercise, onBack: () -> Unit) {
     ScrollPage(ex.title, onBack) {
         Text(
             "${ex.minutes} min · ${Content.label(ex.domain)}${if (ex.partner) " · with a partner" else ""}",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = muted,
         )
         SoftCard(container = MaterialTheme.colorScheme.primaryContainer) {
             Text("Why it helps", style = MaterialTheme.typography.titleSmall)
-            Text(ex.why, style = MaterialTheme.typography.bodyMedium)
+            Text(ex.why, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
         }
         SectionTitle("Steps")
         SoftCard {
@@ -153,44 +151,43 @@ private fun ExerciseContent(ex: Exercise, onBack: () -> Unit) {
         }
         if (ex.partner) {
             Text(
-                "This one is best with a partner. Only do it if you both want to, and either of you can stop at any time.",
+                "Best with a partner. Only do it if you both want to, and either of you can stop at any time.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = muted,
             )
         }
         if (!done) {
             SoftCard {
                 Text(
                     "%d:%02d".format(remaining / 60, remaining % 60),
+                    fontSize = 52.sp,
                     style = MaterialTheme.typography.displaySmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                    Button(onClick = { running = !running }) { Text(if (running) "Pause" else if (remaining < ex.minutes * 60) "Resume" else "Start timer") }
+                    Button(onClick = { running = !running }) {
+                        Text(if (running) "Pause" else if (remaining < ex.minutes * 60) "Resume" else "Start timer")
+                    }
                     OutlinedButton(onClick = { running = false; remaining = ex.minutes * 60 }) { Text("Reset") }
                 }
             }
             SectionTitle("How did it feel?")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                (1..5).forEach { n ->
-                    FilterChip(selected = rating == n, onClick = { rating = n }, label = { Text("$n") }, modifier = Modifier.weight(1f))
-                }
-            }
-            Text("1 = hard, 5 = great", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(
+            RatingRow(rating.takeIf { it > 0 }, { rating = it }, "Hard", "Great")
+            PrimaryButton(
+                "Mark as done",
                 enabled = rating > 0,
+                modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     store.update { it.copy(completions = it.completions + Completion(today(), ex.id, ex.minutes, rating)) }
                     done = true
                 },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Mark as done") }
+            )
         } else {
             SoftCard(container = MaterialTheme.colorScheme.secondaryContainer) {
                 Text("Well done.", style = MaterialTheme.typography.titleMedium)
                 Text("Every rep builds the skill. Your plan will adapt to how this felt.", style = MaterialTheme.typography.bodyMedium)
             }
-            Button(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Back") }
+            PrimaryButton("Back", onBack, arrows = false)
         }
     }
 }

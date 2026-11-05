@@ -40,7 +40,6 @@ import com.betterx.app.BuildConfig
 import com.betterx.app.data.Content
 import com.betterx.app.data.ImportantDate
 import com.betterx.app.data.Persistence
-import com.betterx.app.data.Pin
 import java.time.LocalDate
 import java.util.UUID
 
@@ -70,7 +69,6 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
     val ctx = LocalContext.current
     val askNotifications = rememberNotificationRequester()
 
-    var showPin by remember { mutableStateOf(false) }
     var showWipe by remember { mutableStateOf(false) }
     var showDate by remember { mutableStateOf(false) }
 
@@ -174,9 +172,6 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            SwitchRow("PIN lock", "Ask for a PIN whenever you open the app", d.pinHash.isNotEmpty()) { v ->
-                if (v) showPin = true else store.update { it.copy(pinHash = "", pinSalt = "") }
-            }
             OutlinedButton(onClick = {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
@@ -207,33 +202,6 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
             "BetterX ${BuildConfig.VERSION_NAME}. Education and coaching only, not medical care.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-
-    if (showPin) {
-        var pin by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showPin = false },
-            title = { Text("Set a PIN") },
-            text = {
-                OutlinedTextField(
-                    value = pin,
-                    onValueChange = { pin = it.filter(Char::isDigit).take(6) },
-                    label = { Text("4 to 6 digits") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                )
-            },
-            confirmButton = {
-                TextButton(enabled = pin.length >= 4, onClick = {
-                    val salt = Pin.newSalt()
-                    store.update { it.copy(pinSalt = salt, pinHash = Pin.hash(pin, salt)) }
-                    store.unlocked = true
-                    showPin = false
-                }) { Text("Save") }
-            },
-            dismissButton = { TextButton(onClick = { showPin = false }) { Text("Cancel") } },
         )
     }
 
@@ -311,14 +279,14 @@ fun PaywallScreen(onBack: () -> Unit) {
         )
         if (d.premium) {
             Text("You're on BetterX Plus. Thank you.", style = MaterialTheme.typography.titleSmall)
-            if (BuildConfig.DEBUG) {
-                OutlinedButton(onClick = { store.update { it.copy(premium = false) } }) { Text("(debug) Switch back to Free") }
+            if (BuildConfig.TEST_UNLOCK) {
+                OutlinedButton(onClick = { store.update { it.copy(premium = false) } }) { Text("(test) Switch back to Free") }
             }
         } else {
             Button(
                 onClick = {
-                    if (BuildConfig.DEBUG) {
-                        // Debug-only shortcut so you can test the Plus experience.
+                    if (BuildConfig.TEST_UNLOCK) {
+                        // Test-only shortcut. Set TEST_UNLOCK to "false" in app/build.gradle.kts before shipping.
                         store.update { it.copy(premium = true) }
                         onBack()
                     } else {

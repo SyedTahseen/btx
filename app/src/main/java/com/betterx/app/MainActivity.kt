@@ -34,9 +34,4 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
-    override fun onStop() {
-        super.onStop()
-        store.lockNow()
-    }
 }

@@ -1,5 +1,6 @@
 package com.betterx.app.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -157,7 +158,8 @@ private fun Bubble(fromUser: Boolean, text: String, exerciseId: String?, onExerc
     Box(Modifier.fillMaxWidth(), contentAlignment = if (fromUser) Alignment.CenterEnd else Alignment.CenterStart) {
         Surface(
             shape = MaterialTheme.shapes.medium,
-            color = if (fromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+            color = if (fromUser) MaterialTheme.colorScheme.primary else BX.Card,
+            border = if (fromUser) null else BorderStroke(1.dp, BX.CardBorder),
             modifier = Modifier.widthIn(max = 320.dp),
         ) {
             Column(Modifier.padding(12.dp)) {

@@ -70,8 +70,6 @@ data class AppData(
     val weeklyCheckInDow: Int = 7,
     val discreetNotifications: Boolean = true,
     val premium: Boolean = false,
-    val pinSalt: String = "",
-    val pinHash: String = "",
 ) {
     companion object {
         fun fresh() = AppData(startDay = today(), ghost = Content.seedGhost())

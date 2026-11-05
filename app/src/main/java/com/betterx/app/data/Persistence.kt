@@ -5,8 +5,6 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import java.security.KeyStore
-import java.security.MessageDigest
-import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -50,15 +48,6 @@ object Vault {
         c.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
         return String(c.doFinal(ct), Charsets.UTF_8)
     }
-}
-
-object Pin {
-    fun newSalt(): String = UUID.randomUUID().toString()
-
-    fun hash(pin: String, salt: String): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest((salt + pin).toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
 }
 
 object Persistence {

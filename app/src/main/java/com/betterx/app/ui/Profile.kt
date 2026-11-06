@@ -273,7 +273,7 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
                                 err = signedIn.message
                                 busy = false
                             } else {
-                                val del = Auth.delete((signedIn as AuthResult.Ok).idToken)
+                                val del = Auth.deleteAccount((signedIn as AuthResult.Ok).token)
                                 if (del is AuthResult.Fail) {
                                     err = del.message
                                     busy = false

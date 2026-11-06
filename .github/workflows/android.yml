@@ -42,8 +42,6 @@ jobs:
 
       # The Android SDK is preinstalled on ubuntu-latest runners.
       - name: Build release APK (minified, installable)
-        env:
-          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
         run: gradle assembleRelease --stacktrace
 
       - name: Show APK size

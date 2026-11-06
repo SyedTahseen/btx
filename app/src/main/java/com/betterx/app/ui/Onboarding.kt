@@ -135,7 +135,7 @@ fun OnboardingScreen() {
 
     var step by remember { mutableIntStateOf(0) }
     var adult by remember { mutableStateOf(false) }
-    var nick by remember { mutableStateOf("") }
+    var nick by remember { mutableStateOf(store.data.nickname) }
     var rel by remember { mutableStateOf("Single") }
     var remindersOn by remember { mutableStateOf(true) }
     val concerns = remember { mutableStateListOf<String>() }

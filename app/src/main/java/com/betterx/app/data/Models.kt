@@ -74,6 +74,7 @@ data class AppData(
     val signedIn: Boolean = false,
     val ownerUid: String = "",
     val ownerEmail: String = "",
+    val viaGoogle: Boolean = false,
 ) {
     companion object {
         fun fresh() = AppData(startDay = today(), ghost = Content.seedGhost())

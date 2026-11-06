@@ -29,13 +29,12 @@ sealed class AuthResult {
 }
 
 /**
- * Email + password accounts with email verification, through the Firebase Authentication REST API
- * (no SDK, so the app stays small). Only identity lives there. Health data never leaves the device.
+ * Accounts through the Firebase Authentication REST API (no SDK, so the app stays small):
+ * email + password with email verification, and Google sign-in.
+ * Only identity lives there. Health data never leaves the device.
  */
 object Auth {
     private const val BASE = "https://identitytoolkit.googleapis.com/v1/accounts"
-
-    val configured: Boolean get() = BuildConfig.FIREBASE_API_KEY.isNotBlank()
 
     /** Creates the account and sends the verification email. The user must verify before getting in. */
     suspend fun signUp(email: String, password: String): AuthResult {
@@ -56,6 +55,17 @@ object Auth {
         val user = ((info!!["users"] as? JsonArray)?.firstOrNull()) as? JsonObject
         val verified = (user?.get("emailVerified") as? JsonPrimitive)?.booleanOrNull ?: false
         return s.copy(needsConfirm = !verified)
+    }
+
+    /** Exchanges a Google ID token (from the Google account picker) for a Firebase session. */
+    suspend fun signInWithGoogle(googleIdToken: String): AuthResult {
+        val (json, fail) = call("signInWithIdp", buildJsonObject {
+            put("postBody", "id_token=$googleIdToken&providerId=google.com")
+            put("requestUri", "http://localhost")
+            put("returnIdpCredential", true)
+            put("returnSecureToken", true)
+        })
+        return fail ?: session(json!!, "")
     }
 
     suspend fun sendVerification(token: String): AuthResult {
@@ -109,9 +119,6 @@ object Auth {
 
     private suspend fun call(endpoint: String, body: JsonObject): Pair<JsonObject?, AuthResult.Fail?> =
         withContext(Dispatchers.IO) {
-            if (!configured) {
-                return@withContext null to AuthResult.Fail("Accounts aren't set up in this build yet.", "config")
-            }
             try {
                 val conn = (URL("$BASE:$endpoint?key=${BuildConfig.FIREBASE_API_KEY}").openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
@@ -134,18 +141,18 @@ object Auth {
                 } else {
                     val raw = (json["error"] as? JsonObject)?.str("message").orEmpty()
                     val code = raw.substringBefore(" :").trim()
-                    null to AuthResult.Fail(friendly(code, status), code)
+                    null to AuthResult.Fail(friendly(code), code)
                 }
             } catch (e: IOException) {
                 null to AuthResult.Fail("No internet connection. Please try again.", "network")
             } catch (e: Exception) {
-                null to AuthResult.Fail(
-                    "Something went wrong (${e.javaClass.simpleName}: ${e.message.orEmpty().take(80)}). Please try again.",
-                )
+                null to AuthResult.Fail(GENERIC)
             }
         }
 
-    private fun friendly(code: String, status: Int): String = when {
+    private const val GENERIC = "Something went wrong. Please try again."
+
+    private fun friendly(code: String): String = when {
         code == "EMAIL_EXISTS" -> "An account with this email already exists. Try signing in."
         code == "INVALID_LOGIN_CREDENTIALS" || code == "INVALID_PASSWORD" || code == "EMAIL_NOT_FOUND" ->
             "Incorrect email or password."
@@ -153,15 +160,7 @@ object Auth {
         code.startsWith("TOO_MANY_ATTEMPTS") -> "Too many attempts. Please wait a bit and try again."
         code == "INVALID_EMAIL" -> "That email address doesn't look right."
         code == "USER_DISABLED" -> "This account has been disabled."
-        code == "OPERATION_NOT_ALLOWED" ->
-            "Email sign-in isn't enabled yet. In Firebase: Authentication > Sign-in method > Email/Password > Enable."
-        code == "CONFIGURATION_NOT_FOUND" ->
-            "Firebase sign-in isn't set up yet. In Firebase open Authentication, tap Get started, then enable Email/Password."
         code == "INVALID_ID_TOKEN" || code == "TOKEN_EXPIRED" -> "Your session expired. Please sign in again."
-        code.contains("blocked", ignoreCase = true) || code.contains("not allowed", ignoreCase = true) ->
-            "The API key is restricted. In Google Cloud Console > Credentials, allow Identity Toolkit API and remove app restrictions."
-        code.contains("API key", ignoreCase = true) || code.contains("API_KEY") ->
-            "The Firebase API key isn't valid (API key)."
-        else -> "Something went wrong (${code.take(80).ifBlank { "HTTP $status" }}). Please try again."
+        else -> GENERIC
     }
 }

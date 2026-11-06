@@ -29,17 +29,6 @@ jobs:
         with:
           gradle-version: 8.9
 
-      # The release build is signed with the standard debug key, so make sure it exists.
-      - name: Create debug keystore
-        run: |
-          mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            keytool -genkey -v -keystore ~/.android/debug.keystore \
-              -storepass android -alias androiddebugkey -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
-
       # The Android SDK is preinstalled on ubuntu-latest runners.
       - name: Build release APK (minified, installable)
         run: gradle assembleRelease --stacktrace

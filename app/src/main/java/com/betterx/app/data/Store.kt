@@ -16,10 +16,10 @@ class Store(private val ctx: Context) {
     }
 
     /** Signing in as a different account than the one that owns the local data starts fresh. */
-    fun signIn(uid: String, email: String) {
+    fun signIn(uid: String, email: String, viaGoogle: Boolean = false) {
         update(reschedule = true) { cur ->
             val base = if (cur.ownerUid.isNotEmpty() && cur.ownerUid != uid) AppData.fresh() else cur
-            base.copy(signedIn = true, ownerUid = uid, ownerEmail = email)
+            base.copy(signedIn = true, ownerUid = uid, ownerEmail = email, viaGoogle = viaGoogle)
         }
     }
 
@@ -32,7 +32,9 @@ class Store(private val ctx: Context) {
         Persistence.wipe(ctx)
         Reminders.cancel(ctx)
         val keep = data
-        data = AppData.fresh().copy(signedIn = keep.signedIn, ownerUid = keep.ownerUid, ownerEmail = keep.ownerEmail)
+        data = AppData.fresh().copy(
+            signedIn = keep.signedIn, ownerUid = keep.ownerUid, ownerEmail = keep.ownerEmail, viaGoogle = keep.viaGoogle,
+        )
         Persistence.save(ctx, data)
     }
 

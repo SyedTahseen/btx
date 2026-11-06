@@ -15,28 +15,24 @@ After a run finishes: GitHub repo > Actions > pick the run > Artifacts > **Bette
 The run log prints the APK size. The APK is signed with the debug key (fine for testing, not for the Play Store).
 `TEST_UNLOCK` in `app/build.gradle.kts` lets you unlock Plus locally for testing; set it to `"false"` before publishing.
 
-## Accounts (sign up with email verification, sign in, forgot password)
-Email + password accounts use **Firebase Authentication** through its REST API (no SDK, so the app stays small).
-Firebase sends the verification and password-reset emails itself, so no email provider (SMTP) is needed.
-Only your identity (email) is in Firebase. Health data, plans and chats stay encrypted on the device.
+## Accounts (email + verification, Google, forgot password)
+Accounts use **Firebase Authentication** through its REST API (no SDK, so the app stays small).
+Firebase sends the verification and reset emails itself. Only your identity (email) is in Firebase.
+Health data, plans and chats stay encrypted on the device.
 
-Flow: sign up > verification email > user opens the link > taps "I've verified my email" > in.
-Sign-in is blocked until the email is verified. Forgot password sends a reset link (the user sets the new password on a Firebase page).
+- **Email:** sign up > verification email > user opens the link > taps "I've verified my email" > in. Sign-in is blocked until verified.
+- **Forgot password:** sends a reset link from Firebase.
+- **Google:** "Continue with Google" appears once `GOOGLE_WEB_CLIENT_ID` is set (see below). Google accounts are already verified.
+- **Delete account:** Profile > Account. Email users confirm with their password, Google users confirm with Google.
 
-One-time setup:
-1. Go to console.firebase.google.com, create a project, then **Build > Authentication > Get started > Sign-in method > Email/Password > Enable**.
-2. **Project settings (gear) > General > Web API Key**: copy it.
-3. The BetterX project's key is already built into `app/build.gradle.kts` (it is public by design), so no GitHub secret is needed.
-   To use a different project, set `FIREBASE_API_KEY` in `~/.gradle/gradle.properties` or as an environment variable.
-4. Optional: **Authentication > Templates** lets you change the sender name and wording of the verification and reset emails.
+Firebase setup (one time):
+1. Authentication > Sign-in method: enable **Email/Password** and **Google**.
+2. Project settings > Your apps > **Add app > Android**: package name `com.betterx.app`, SHA-1 = the one for `app/betterx-debug.keystore`
+   (`keytool -list -v -keystore app/betterx-debug.keystore -storepass android`). You can skip the other steps in that wizard.
+3. Authentication > Sign-in method > Google > **Web SDK configuration > Web client ID**: paste it into `GOOGLE_WEB_CLIENT_ID` in `app/build.gradle.kts`.
+4. Before the Play Store: sign with your own private upload key, and add the SHA-1 of the Play App Signing certificate in Firebase too.
 
-Without the key the sign-in screen shows a setup notice (and a "Skip" button while `TEST_UNLOCK` is on).
-
-Good to know:
-- Verification emails come from a Firebase address and can land in spam; the verify screen says to check there.
-- Signing out keeps the local data; signing in with a *different* account on the same phone starts fresh.
-- Progress is not synced between phones yet (that would need a server and consent for storing health data).
-- Google sign-in is not included yet. Add Terms/Privacy links before store release.
+`app/betterx-debug.keystore` is a shared test key that keeps the SHA-1 stable across builds. It is not for production.
 
 ## Design
 Black background, one neon-lime accent, olive tiles, big numbers, round 1-5 buttons and a pill navigation bar.

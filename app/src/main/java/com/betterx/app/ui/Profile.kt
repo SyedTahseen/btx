@@ -41,6 +41,8 @@ import com.betterx.app.BuildConfig
 import com.betterx.app.data.Auth
 import com.betterx.app.data.AuthResult
 import com.betterx.app.data.Content
+import com.betterx.app.data.GoogleResult
+import com.betterx.app.data.GoogleSignIn
 import com.betterx.app.data.ImportantDate
 import com.betterx.app.data.Persistence
 import java.time.LocalDate
@@ -243,37 +245,50 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
         var pw by remember { mutableStateOf("") }
         var busy by remember { mutableStateOf(false) }
         var err by remember { mutableStateOf<String?>(null) }
+        val googleUser = d.viaGoogle
         AlertDialog(
             onDismissRequest = { if (!busy) showDelete = false },
             title = { Text("Delete your account?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("This permanently deletes your account and everything on this device. Enter your password to confirm.")
-                    OutlinedTextField(
-                        value = pw,
-                        onValueChange = { pw = it.take(64); err = null },
-                        label = { Text("Password") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        isError = err != null,
-                        supportingText = { err?.let { Text(it) } },
+                    Text(
+                        if (googleUser) "This permanently deletes your account and everything on this device. You'll confirm with Google."
+                        else "This permanently deletes your account and everything on this device. Enter your password to confirm.",
                     )
+                    if (!googleUser) {
+                        OutlinedTextField(
+                            value = pw,
+                            onValueChange = { pw = it.take(64); err = null },
+                            label = { Text("Password") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            isError = err != null,
+                            supportingText = { err?.let { Text(it) } },
+                        )
+                    } else {
+                        err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    }
                 }
             },
             confirmButton = {
                 TextButton(
-                    enabled = pw.isNotEmpty() && !busy,
+                    enabled = (googleUser || pw.isNotEmpty()) && !busy,
                     onClick = {
                         busy = true
                         err = null
                         scope.launch {
-                            val signedIn = Auth.signIn(d.ownerEmail, pw)
-                            if (signedIn is AuthResult.Fail) {
-                                err = signedIn.message
-                                busy = false
+                            val auth: AuthResult = if (googleUser) {
+                                when (val g = GoogleSignIn.getIdToken(ctx)) {
+                                    is GoogleResult.Token -> Auth.signInWithGoogle(g.idToken)
+                                    GoogleResult.Cancelled -> AuthResult.Fail("")
+                                    is GoogleResult.Error -> AuthResult.Fail(g.message)
+                                }
                             } else {
-                                val del = Auth.deleteAccount((signedIn as AuthResult.Ok).token)
+                                Auth.signIn(d.ownerEmail, pw)
+                            }
+                            if (auth is AuthResult.Ok) {
+                                val del = Auth.deleteAccount(auth.token)
                                 if (del is AuthResult.Fail) {
                                     err = del.message
                                     busy = false
@@ -281,6 +296,9 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
                                     showDelete = false
                                     store.wipeAll()
                                 }
+                            } else if (auth is AuthResult.Fail) {
+                                err = auth.message.ifBlank { null }
+                                busy = false
                             }
                         }
                     },

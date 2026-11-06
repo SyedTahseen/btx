@@ -5,12 +5,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-// Firebase Web API key (identifies your Firebase project; it is not a secret).
-// Defaults to the BetterX Firebase project. Override with a gradle property or environment variable if needed.
-val firebaseApiKey: String = (project.findProperty("FIREBASE_API_KEY") as String?)
-    ?: System.getenv("FIREBASE_API_KEY")?.takeIf { it.isNotBlank() }
-    ?: "AIzaSyBu7p1uD2vmMUZY4S5qGZjmtNGM2WE-M24"
-
 android {
     namespace = "com.betterx.app"
     compileSdk = 35
@@ -26,20 +20,35 @@ android {
         buildConfigField("String", "COACH_API_URL", "\"\"")
         // While true, "Start BetterX Plus" unlocks Plus locally so you can test it.
         // Set to "false" before publishing (and connect Play Billing).
-        buildConfigField("String", "FIREBASE_API_KEY", "\"${firebaseApiKey.trim()}\"")
+        // Firebase Web API key (public identifier, not a secret).
+        buildConfigField("String", "FIREBASE_API_KEY", "\"AIzaSyBu7p1uD2vmMUZY4S5qGZjmtNGM2WE-M24\"")
+        // OAuth *Web* client ID from Firebase > Authentication > Sign-in method > Google. Shows the Google button when set.
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"\"")
         buildConfigField("boolean", "TEST_UNLOCK", "true")
         // Keep only English strings from libraries (smaller APK).
         resourceConfigurations += listOf("en")
     }
 
+    // One fixed test key, so the SHA-1 registered in Firebase stays the same on every build (including CI).
+    // This is a test key. Use your own private upload key for the Play Store.
+    signingConfigs {
+        create("betterx") {
+            storeFile = file("betterx-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("betterx")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with the debug key so CI builds install directly on a phone.
-            // Create a real keystore for Play Store releases.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("betterx")
         }
     }
     compileOptions {
@@ -68,6 +77,9 @@ dependencies {
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")

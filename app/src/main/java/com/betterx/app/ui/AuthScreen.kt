@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
@@ -25,15 +26,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.betterx.app.BuildConfig
 import com.betterx.app.data.Auth
 import com.betterx.app.data.AuthResult
+import com.betterx.app.data.GoogleResult
+import com.betterx.app.data.GoogleSignIn
 import kotlinx.coroutines.launch
 
 private enum class Mode { SignIn, SignUp, Forgot, Verify }
@@ -42,6 +45,7 @@ private enum class Mode { SignIn, SignUp, Forgot, Verify }
 fun AuthScreen() {
     val store = LocalStore.current
     val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
     var mode by remember { mutableStateOf(Mode.SignUp) }
@@ -79,6 +83,23 @@ fun AuthScreen() {
                 } else {
                     store.signIn(r.uid, r.email.ifBlank { cleanEmail })
                 }
+        }
+    }
+
+    fun googleSignIn() {
+        busy = true
+        error = null
+        info = null
+        scope.launch {
+            when (val g = GoogleSignIn.getIdToken(ctx)) {
+                is GoogleResult.Token -> when (val r = Auth.signInWithGoogle(g.idToken)) {
+                    is AuthResult.Ok -> store.signIn(r.uid, r.email, viaGoogle = true)
+                    is AuthResult.Fail -> error = r.message
+                }
+                GoogleResult.Cancelled -> Unit
+                is GoogleResult.Error -> error = g.message
+            }
+            busy = false
         }
     }
 
@@ -205,6 +226,16 @@ fun AuthScreen() {
             },
         )
 
+        if ((mode == Mode.SignIn || mode == Mode.SignUp) && GoogleSignIn.available) {
+            Text("or", style = MaterialTheme.typography.labelMedium, color = muted, modifier = Modifier.align(Alignment.CenterHorizontally))
+            OutlinedButton(
+                onClick = { googleSignIn() },
+                enabled = !busy,
+                shape = CircleShape,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+            ) { Text("Continue with Google", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+        }
+
         if (mode == Mode.Verify) {
             TextButton(
                 enabled = !busy,
@@ -236,22 +267,6 @@ fun AuthScreen() {
                     else -> "Back to sign in"
                 },
             )
-        }
-
-        if (!Auth.configured) {
-            SoftCard(container = MaterialTheme.colorScheme.errorContainer) {
-                Text("Accounts aren't set up in this build", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "Add your FIREBASE_API_KEY (see the README) and rebuild.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                if (BuildConfig.TEST_UNLOCK) {
-                    OutlinedButton(
-                        onClick = { store.signIn("test-user", "test@local") },
-                        modifier = Modifier.padding(top = 8.dp),
-                    ) { Text("Skip (test builds only)") }
-                }
-            }
         }
     }
 }

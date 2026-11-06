@@ -7,15 +7,17 @@ import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
 sealed class AuthResult {
-    /** [needsConfirm] is true when sign-up worked but the email must be confirmed with a code first. */
+    /** [needsConfirm] is true when the account exists but the email has not been verified yet. */
     data class Ok(
         val uid: String = "",
         val email: String = "",
@@ -27,144 +29,132 @@ sealed class AuthResult {
 }
 
 /**
- * Email + password accounts through the Supabase Auth REST API (no SDK, so the app stays small).
- * Only identity lives in Supabase Auth. Health data never leaves the device.
- *
- * Password reset and email confirmation use a 6-digit code typed into the app, so no deep links are needed.
- * (Add {{ .Token }} to the Supabase email templates, see README.)
+ * Email + password accounts with email verification, through the Firebase Authentication REST API
+ * (no SDK, so the app stays small). Only identity lives there. Health data never leaves the device.
  */
 object Auth {
-    val configured: Boolean
-        get() = BuildConfig.SUPABASE_URL.isNotBlank() && BuildConfig.SUPABASE_KEY.isNotBlank()
+    private const val BASE = "https://identitytoolkit.googleapis.com/v1/accounts"
 
-    suspend fun signUp(email: String, password: String): AuthResult =
-        call("POST", "/auth/v1/signup", buildJsonObject {
-            put("email", email)
-            put("password", password)
-        }).let { (json, fail) -> fail ?: toSession(json!!, email) }
+    val configured: Boolean get() = BuildConfig.FIREBASE_API_KEY.isNotBlank()
 
-    suspend fun signIn(email: String, password: String): AuthResult =
-        call("POST", "/auth/v1/token?grant_type=password", buildJsonObject {
-            put("email", email)
-            put("password", password)
-        }).let { (json, fail) -> fail ?: requireSession(json!!, email) }
-
-    /** Sends a recovery code. Looks successful for unknown emails so it can't be used to discover accounts. */
-    suspend fun sendRecovery(email: String): AuthResult {
-        val (_, fail) = call("POST", "/auth/v1/recover", buildJsonObject { put("email", email) })
-        return if (fail != null && fail.code != "over_email_send_rate_limit" && fail.code != "network") AuthResult.Ok() else fail ?: AuthResult.Ok()
+    /** Creates the account and sends the verification email. The user must verify before getting in. */
+    suspend fun signUp(email: String, password: String): AuthResult {
+        val (json, fail) = call("signUp", creds(email, password))
+        if (fail != null) return fail
+        val s = session(json!!, email)
+        sendVerification(s.token) // if this fails, the Verify screen has a "Resend" button
+        return s.copy(needsConfirm = true)
     }
 
-    suspend fun resendSignup(email: String): AuthResult {
-        val (_, fail) = call("POST", "/auth/v1/resend", buildJsonObject {
-            put("type", "signup")
-            put("email", email)
+    /** Signs in. The result has needsConfirm = true if the email isn't verified yet. */
+    suspend fun signIn(email: String, password: String): AuthResult {
+        val (json, fail) = call("signInWithPassword", creds(email, password))
+        if (fail != null) return fail
+        val s = session(json!!, email)
+        val (info, lookupFail) = call("lookup", buildJsonObject { put("idToken", s.token) })
+        if (lookupFail != null) return lookupFail
+        val user = ((info!!["users"] as? JsonArray)?.firstOrNull()) as? JsonObject
+        val verified = (user?.get("emailVerified") as? JsonPrimitive)?.booleanOrNull ?: false
+        return s.copy(needsConfirm = !verified)
+    }
+
+    suspend fun sendVerification(token: String): AuthResult {
+        val (_, fail) = call("sendOobCode", buildJsonObject {
+            put("requestType", "VERIFY_EMAIL")
+            put("idToken", token)
         })
         return fail ?: AuthResult.Ok()
     }
 
-    /** [type] is "signup" or "recovery". Returns a signed-in session when the code is right. */
-    suspend fun verify(type: String, email: String, code: String): AuthResult =
-        call("POST", "/auth/v1/verify", buildJsonObject {
-            put("type", type)
-            put("email", email)
-            put("token", code)
-        }).let { (json, fail) -> fail ?: requireSession(json!!, email) }
-
-    suspend fun updatePassword(token: String, newPassword: String): AuthResult {
-        val (_, fail) = call("PUT", "/auth/v1/user", buildJsonObject { put("password", newPassword) }, token)
-        return fail ?: AuthResult.Ok()
+    /**
+     * Sends a fresh verification email. If the email turns out to be verified already,
+     * returns the signed-in session instead (token is not empty).
+     */
+    suspend fun resendVerification(email: String, password: String): AuthResult {
+        return when (val s = signIn(email, password)) {
+            is AuthResult.Fail -> s
+            is AuthResult.Ok -> if (!s.needsConfirm) s else sendVerification(s.token)
+        }
     }
 
-    /** Needs the "delete-account" Edge Function (supabase/functions/delete-account) to be deployed. */
+    /** Looks successful for unknown emails so the form can't be used to discover accounts. */
+    suspend fun sendReset(email: String): AuthResult {
+        val (_, fail) = call("sendOobCode", buildJsonObject {
+            put("requestType", "PASSWORD_RESET")
+            put("email", email)
+        })
+        return if (fail != null && fail.code == "EMAIL_NOT_FOUND") AuthResult.Ok() else fail ?: AuthResult.Ok()
+    }
+
     suspend fun deleteAccount(token: String): AuthResult {
-        val (_, fail) = call("POST", "/functions/v1/delete-account", buildJsonObject {}, token)
+        val (_, fail) = call("delete", buildJsonObject { put("idToken", token) })
         return fail ?: AuthResult.Ok()
     }
 
     // ----------------------------------------------------------------- internals
 
+    private fun creds(email: String, password: String) = buildJsonObject {
+        put("email", email)
+        put("password", password)
+        put("returnSecureToken", true)
+    }
+
     private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 
-    private fun toSession(j: JsonObject, fallbackEmail: String): AuthResult.Ok {
-        val user = j["user"] as? JsonObject
-        val token = j.str("access_token").orEmpty()
-        return AuthResult.Ok(
-            uid = user?.str("id") ?: j.str("id").orEmpty(),
-            email = user?.str("email") ?: j.str("email") ?: fallbackEmail,
-            token = token,
-            needsConfirm = token.isEmpty(),
-        )
-    }
+    private fun session(j: JsonObject, fallbackEmail: String) = AuthResult.Ok(
+        uid = j.str("localId").orEmpty(),
+        email = j.str("email") ?: fallbackEmail,
+        token = j.str("idToken").orEmpty(),
+    )
 
-    private fun requireSession(j: JsonObject, fallbackEmail: String): AuthResult {
-        val s = toSession(j, fallbackEmail)
-        return if (s.token.isEmpty()) AuthResult.Fail("Something went wrong. Please try again.") else s
-    }
-
-    private suspend fun call(
-        method: String,
-        path: String,
-        body: JsonObject,
-        bearer: String? = null,
-    ): Pair<JsonObject?, AuthResult.Fail?> = withContext(Dispatchers.IO) {
-        if (!configured) {
-            return@withContext null to AuthResult.Fail("Accounts aren't set up in this build yet.", "config")
-        }
-        try {
-            val base = BuildConfig.SUPABASE_URL.trimEnd('/')
-            val conn = (URL(base + path).openConnection() as HttpURLConnection).apply {
-                requestMethod = method
-                connectTimeout = 15_000
-                readTimeout = 20_000
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json")
-                setRequestProperty("apikey", BuildConfig.SUPABASE_KEY)
-                if (bearer != null) setRequestProperty("Authorization", "Bearer $bearer")
+    private suspend fun call(endpoint: String, body: JsonObject): Pair<JsonObject?, AuthResult.Fail?> =
+        withContext(Dispatchers.IO) {
+            if (!configured) {
+                return@withContext null to AuthResult.Fail("Accounts aren't set up in this build yet.", "config")
             }
-            conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-            val status = conn.responseCode
-            val stream = if (status in 200..299) conn.inputStream else conn.errorStream
-            val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            val json = try {
-                if (text.isBlank()) JsonObject(emptyMap()) else Json.parseToJsonElement(text).jsonObject
+            try {
+                val conn = (URL("$BASE:$endpoint?key=${BuildConfig.FIREBASE_API_KEY}").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 15_000
+                    readTimeout = 20_000
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                }
+                conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                val status = conn.responseCode
+                val stream = if (status in 200..299) conn.inputStream else conn.errorStream
+                val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val json = try {
+                    if (text.isBlank()) JsonObject(emptyMap()) else Json.parseToJsonElement(text).jsonObject
+                } catch (e: Exception) {
+                    JsonObject(emptyMap())
+                }
+                if (status in 200..299) {
+                    json to null
+                } else {
+                    val raw = (json["error"] as? JsonObject)?.str("message").orEmpty()
+                    val code = raw.substringBefore(" :").trim()
+                    null to AuthResult.Fail(friendly(code), code)
+                }
+            } catch (e: IOException) {
+                null to AuthResult.Fail("No internet connection. Please try again.", "network")
             } catch (e: Exception) {
-                JsonObject(emptyMap())
+                null to AuthResult.Fail("Something went wrong. Please try again.")
             }
-            if (status in 200..299) {
-                json to null
-            } else {
-                val code = json.str("error_code") ?: json.str("error") ?: ""
-                val msg = json.str("msg") ?: json.str("error_description") ?: json.str("message") ?: ""
-                null to AuthResult.Fail(friendly(code, msg, status), code)
-            }
-        } catch (e: IOException) {
-            null to AuthResult.Fail("No internet connection. Please try again.", "network")
-        } catch (e: Exception) {
-            null to AuthResult.Fail("Something went wrong. Please try again.")
         }
-    }
 
-    private fun friendly(code: String, msg: String, status: Int): String {
-        val m = msg.lowercase()
-        return when {
-            code == "invalid_credentials" || (code == "invalid_grant" && "invalid login" in m) ->
-                "Incorrect email or password."
-            code == "user_already_exists" || code == "email_exists" ->
-                "An account with this email already exists. Try signing in."
-            code == "weak_password" -> "Please choose a stronger password (at least 8 characters)."
-            code == "same_password" -> "Please choose a different password from your current one."
-            code == "email_not_confirmed" -> "Please confirm your email first. Check your inbox for the code."
-            code == "otp_expired" || "expired or is invalid" in m || "token has expired" in m ->
-                "That code isn't right or has expired. Request a new one."
-            code.startsWith("over_") || status == 429 ->
-                "Too many attempts. Please wait a few minutes and try again."
-            code == "validation_failed" || code == "email_address_invalid" || "invalid format" in m ->
-                "That email address doesn't look right."
-            code == "signup_disabled" -> "New sign-ups are turned off right now."
-            "api key" in m || code == "no_api_key" -> "Accounts aren't configured correctly (API key)."
-            status == 404 && "function" in m -> "Account deletion isn't set up on the server yet."
-            else -> "Something went wrong. Please try again."
-        }
+    private fun friendly(code: String): String = when {
+        code == "EMAIL_EXISTS" -> "An account with this email already exists. Try signing in."
+        code == "INVALID_LOGIN_CREDENTIALS" || code == "INVALID_PASSWORD" || code == "EMAIL_NOT_FOUND" ->
+            "Incorrect email or password."
+        code.startsWith("WEAK_PASSWORD") -> "Please choose a stronger password (at least 8 characters)."
+        code.startsWith("TOO_MANY_ATTEMPTS") -> "Too many attempts. Please wait a bit and try again."
+        code == "INVALID_EMAIL" -> "That email address doesn't look right."
+        code == "USER_DISABLED" -> "This account has been disabled."
+        code == "OPERATION_NOT_ALLOWED" -> "Email sign-in isn't enabled for this app yet."
+        code == "INVALID_ID_TOKEN" || code == "TOKEN_EXPIRED" -> "Your session expired. Please sign in again."
+        code.contains("API key", ignoreCase = true) || code.contains("API_KEY") ->
+            "Accounts aren't configured correctly (API key)."
+        else -> "Something went wrong. Please try again."
     }
 }

@@ -15,24 +15,25 @@ After a run finishes: GitHub repo > Actions > pick the run > Artifacts > **Bette
 The run log prints the APK size. The APK is signed with the debug key (fine for testing, not for the Play Store).
 `TEST_UNLOCK` in `app/build.gradle.kts` lets you unlock Plus locally for testing; set it to `"false"` before publishing.
 
-## Accounts (sign in / sign up / forgot password)
-Email + password accounts use **Supabase Auth** through its REST API (no SDK, so the app stays small).
-Project: **BetterX** (`gugmwcgppnczcfwreivo`, free plan, Mumbai). The URL and publishable key are built in
-(`app/build.gradle.kts`); they are public by design, so no GitHub secret is needed.
-Only your identity (email) is in Supabase. Health data, plans and chats stay encrypted on the device.
-Email confirmation and password reset use a 6-digit code typed into the app, so no deep links are needed.
+## Accounts (sign up with email verification, sign in, forgot password)
+Email + password accounts use **Firebase Authentication** through its REST API (no SDK, so the app stays small).
+Firebase sends the verification and password-reset emails itself, so no email provider (SMTP) is needed.
+Only your identity (email) is in Firebase. Health data, plans and chats stay encrypted on the device.
 
-Already done on the server: project created, `delete-account` Edge Function deployed (lets users delete their own account).
+Flow: sign up > verification email > user opens the link > taps "I've verified my email" > in.
+Sign-in is blocked until the email is verified. Forgot password sends a reset link (the user sets the new password on a Firebase page).
 
-**One-time step in the Supabase dashboard (about a minute):** the default emails only contain a link, so add the code.
-Dashboard > BetterX > **Authentication > Email Templates**, then edit:
-- **Confirm signup**: `<h2>Confirm your email</h2><p>Your BetterX code is <b>{{ .Token }}</b></p>`
-- **Reset password**: `<h2>Reset your password</h2><p>Your BetterX code is <b>{{ .Token }}</b></p>`
+One-time setup:
+1. Go to console.firebase.google.com, create a project, then **Build > Authentication > Get started > Sign-in method > Email/Password > Enable**.
+2. **Project settings (gear) > General > Web API Key**: copy it.
+3. The BetterX project's key is already built into `app/build.gradle.kts` (it is public by design), so no GitHub secret is needed.
+   To use a different project, set `FIREBASE_API_KEY` in `~/.gradle/gradle.properties` or as an environment variable.
+4. Optional: **Authentication > Templates** lets you change the sender name and wording of the verification and reset emails.
 
-Optional: **Authentication > Sign In / Providers > Email > Confirm email** off, if you don't want the confirmation step.
-Before launch: set up **custom SMTP** (Authentication > SMTP). The built-in sender only allows a few emails per hour.
+Without the key the sign-in screen shows a setup notice (and a "Skip" button while `TEST_UNLOCK` is on).
 
 Good to know:
+- Verification emails come from a Firebase address and can land in spam; the verify screen says to check there.
 - Signing out keeps the local data; signing in with a *different* account on the same phone starts fresh.
 - Progress is not synced between phones yet (that would need a server and consent for storing health data).
 - Google sign-in is not included yet. Add Terms/Privacy links before store release.

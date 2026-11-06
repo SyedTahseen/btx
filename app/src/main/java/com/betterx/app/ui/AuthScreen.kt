@@ -36,7 +36,7 @@ import com.betterx.app.data.Auth
 import com.betterx.app.data.AuthResult
 import kotlinx.coroutines.launch
 
-private enum class Mode { SignIn, SignUp, Forgot, Code }
+private enum class Mode { SignIn, SignUp, Forgot, Verify }
 
 @Composable
 fun AuthScreen() {
@@ -45,12 +45,9 @@ fun AuthScreen() {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
     var mode by remember { mutableStateOf(Mode.SignUp) }
-    // What the code on the Code screen is for: "signup" (confirm email) or "recovery" (reset password).
-    var codeFor by remember { mutableStateOf("signup") }
     var email by remember { mutableStateOf("") }
     var pw by remember { mutableStateOf("") }
     var pw2 by remember { mutableStateOf("") }
-    var code by remember { mutableStateOf("") }
     var show by remember { mutableStateOf(false) }
     var agree by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -60,7 +57,6 @@ fun AuthScreen() {
     val cleanEmail = email.trim()
     val emailOk = android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()
     val pwVisual = if (show) VisualTransformation.None else PasswordVisualTransformation()
-    val recovery = mode == Mode.Code && codeFor == "recovery"
 
     fun go(m: Mode) {
         mode = m
@@ -68,10 +64,21 @@ fun AuthScreen() {
         info = null
     }
 
-    fun finish(r: AuthResult) {
+    /** Shared handling for sign-in style results. */
+    fun handle(r: AuthResult) {
         when (r) {
-            is AuthResult.Ok -> store.signIn(r.uid, r.email.ifBlank { cleanEmail })
             is AuthResult.Fail -> error = r.message
+            is AuthResult.Ok ->
+                if (r.needsConfirm) {
+                    if (mode == Mode.Verify) {
+                        error = "Not verified yet. Open the link in the email we sent you (check your spam folder)."
+                    } else {
+                        mode = Mode.Verify
+                        info = "Please verify your email to continue."
+                    }
+                } else {
+                    store.signIn(r.uid, r.email.ifBlank { cleanEmail })
+                }
         }
     }
 
@@ -79,7 +86,7 @@ fun AuthScreen() {
         Mode.SignIn -> emailOk && pw.length >= 8
         Mode.SignUp -> emailOk && pw.length >= 8 && pw == pw2 && agree
         Mode.Forgot -> emailOk
-        Mode.Code -> code.length in 6..10 && (!recovery || (pw.length >= 8 && pw == pw2))
+        Mode.Verify -> true
     }
 
     Column(
@@ -96,7 +103,7 @@ fun AuthScreen() {
                 Mode.SignUp -> "Create your\naccount"
                 Mode.SignIn -> "Welcome\nback"
                 Mode.Forgot -> "Reset your\npassword"
-                Mode.Code -> if (recovery) "Choose a new\npassword" else "Check your\nemail"
+                Mode.Verify -> "Verify your\nemail"
             },
             fontSize = 36.sp,
             lineHeight = 42.sp,
@@ -106,15 +113,15 @@ fun AuthScreen() {
             when (mode) {
                 Mode.SignUp -> "Your email is only used to sign in. Your plan and progress stay private on this device."
                 Mode.SignIn -> "Sign in to continue your plan."
-                Mode.Forgot -> "Enter your email and we'll send you a code."
-                Mode.Code -> "Enter the code we sent to $cleanEmail."
+                Mode.Forgot -> "Enter your email and we'll send you a link to choose a new password."
+                Mode.Verify -> "We sent a verification link to $cleanEmail. Open it, then come back here and tap the button below."
             },
             style = MaterialTheme.typography.bodyMedium,
             color = muted,
         )
         Spacer(Modifier.height(4.dp))
 
-        if (mode != Mode.Code) {
+        if (mode != Mode.Verify) {
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it.take(100); error = null; info = null },
@@ -123,30 +130,12 @@ fun AuthScreen() {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 modifier = Modifier.fillMaxWidth(),
             )
-        } else {
-            OutlinedTextField(
-                value = code,
-                onValueChange = { code = it.filter(Char::isDigit).take(10); error = null },
-                label = { Text("Code from your email") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
-
-        if (mode == Mode.SignIn || mode == Mode.SignUp || recovery) {
+        if (mode == Mode.SignIn || mode == Mode.SignUp) {
             OutlinedTextField(
                 value = pw,
                 onValueChange = { pw = it.take(64); error = null; info = null },
-                label = {
-                    Text(
-                        when {
-                            recovery -> "New password (8+ characters)"
-                            mode == Mode.SignUp -> "Password (8+ characters)"
-                            else -> "Password"
-                        },
-                    )
-                },
+                label = { Text(if (mode == Mode.SignUp) "Password (8+ characters)" else "Password") },
                 singleLine = true,
                 visualTransformation = pwVisual,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -154,7 +143,7 @@ fun AuthScreen() {
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        if (mode == Mode.SignUp || recovery) {
+        if (mode == Mode.SignUp) {
             OutlinedTextField(
                 value = pw2,
                 onValueChange = { pw2 = it.take(64); error = null },
@@ -166,8 +155,6 @@ fun AuthScreen() {
                 supportingText = { if (pw2.isNotEmpty() && pw2 != pw) Text("Passwords don't match") },
                 modifier = Modifier.fillMaxWidth(),
             )
-        }
-        if (mode == Mode.SignUp) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = agree, onCheckedChange = { agree = it })
                 Text("I agree to the Terms of Use and Privacy Policy.", style = MaterialTheme.typography.bodySmall)
@@ -185,9 +172,8 @@ fun AuthScreen() {
                 busy -> "Please wait…"
                 mode == Mode.SignUp -> "Create account"
                 mode == Mode.SignIn -> "Sign in"
-                mode == Mode.Forgot -> "Send code"
-                recovery -> "Save new password"
-                else -> "Verify"
+                mode == Mode.Forgot -> "Send reset link"
+                else -> "I've verified my email"
             },
             enabled = canSubmit,
             onClick = {
@@ -196,64 +182,47 @@ fun AuthScreen() {
                 info = null
                 scope.launch {
                     when (mode) {
-                        Mode.SignIn -> finish(Auth.signIn(cleanEmail, pw))
+                        Mode.SignIn -> handle(Auth.signIn(cleanEmail, pw))
                         Mode.SignUp -> when (val r = Auth.signUp(cleanEmail, pw)) {
                             is AuthResult.Fail -> error = r.message
-                            is AuthResult.Ok ->
-                                if (r.needsConfirm) {
-                                    codeFor = "signup"
-                                    code = ""
-                                    mode = Mode.Code
-                                    info = "We've sent a code to your email."
-                                } else {
-                                    finish(r)
-                                }
+                            is AuthResult.Ok -> {
+                                mode = Mode.Verify
+                                info = "Verification email sent."
+                            }
                         }
-                        Mode.Forgot -> when (val r = Auth.sendRecovery(cleanEmail)) {
+                        Mode.Forgot -> when (val r = Auth.sendReset(cleanEmail)) {
                             is AuthResult.Fail -> error = r.message
                             is AuthResult.Ok -> {
-                                codeFor = "recovery"
-                                code = ""
+                                mode = Mode.SignIn
                                 pw = ""
-                                pw2 = ""
-                                mode = Mode.Code
-                                info = "If an account exists for that email, we've sent a code."
+                                info = "If an account exists for that email, we've sent a reset link. Open it, choose a new password, then sign in."
                             }
                         }
-                        Mode.Code -> {
-                            val v = Auth.verify(codeFor, cleanEmail, code)
-                            if (v is AuthResult.Ok && recovery) {
-                                when (val u = Auth.updatePassword(v.token, pw)) {
-                                    is AuthResult.Fail -> error = u.message
-                                    is AuthResult.Ok -> finish(v)
-                                }
-                            } else {
-                                finish(v)
-                            }
-                        }
+                        Mode.Verify -> handle(Auth.signIn(cleanEmail, pw))
                     }
                     busy = false
                 }
             },
         )
 
-        if (mode == Mode.Code) {
+        if (mode == Mode.Verify) {
             TextButton(
                 enabled = !busy,
                 onClick = {
                     busy = true
                     error = null
+                    info = null
                     scope.launch {
-                        val r = if (codeFor == "signup") Auth.resendSignup(cleanEmail) else Auth.sendRecovery(cleanEmail)
-                        when (r) {
-                            is AuthResult.Ok -> info = "A new code is on its way."
+                        when (val r = Auth.resendVerification(cleanEmail, pw)) {
                             is AuthResult.Fail -> error = r.message
+                            is AuthResult.Ok ->
+                                if (r.token.isNotEmpty()) handle(r) else info = "A new verification email is on its way."
                         }
                         busy = false
                     }
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally),
-            ) { Text("Send a new code") }
+            ) { Text("Resend verification email") }
         }
 
         TextButton(
@@ -273,7 +242,7 @@ fun AuthScreen() {
             SoftCard(container = MaterialTheme.colorScheme.errorContainer) {
                 Text("Accounts aren't set up in this build", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "The Supabase key is missing (see the README) and the app needs a rebuild.",
+                    "Add your FIREBASE_API_KEY (see the README) and rebuild.",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (BuildConfig.TEST_UNLOCK) {

@@ -5,14 +5,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-// Supabase project URL and publishable (anon) key. Both are safe to ship in an app; they are not secrets.
-// Defaults point at the BetterX Supabase project. Override with gradle properties or environment variables if needed.
-val supabaseUrl: String = (project.findProperty("SUPABASE_URL") as String?)
-    ?: System.getenv("SUPABASE_URL")?.takeIf { it.isNotBlank() }
-    ?: "https://gugmwcgppnczcfwreivo.supabase.co"
-val supabaseKey: String = (project.findProperty("SUPABASE_PUBLISHABLE_KEY") as String?)
-    ?: System.getenv("SUPABASE_PUBLISHABLE_KEY")?.takeIf { it.isNotBlank() }
-    ?: "sb_publishable_5DcPUePO-ORdekKKNFX2aA_2LyAhSYa"
+// Firebase Web API key (identifies your Firebase project; it is not a secret).
+// Defaults to the BetterX Firebase project. Override with a gradle property or environment variable if needed.
+val firebaseApiKey: String = (project.findProperty("FIREBASE_API_KEY") as String?)
+    ?: System.getenv("FIREBASE_API_KEY")?.takeIf { it.isNotBlank() }
+    ?: "AIzaSyBu7p1uD2vmMUZY4S5qGZjmtNGM2WE-M24"
 
 android {
     namespace = "com.betterx.app"
@@ -29,8 +26,7 @@ android {
         buildConfigField("String", "COACH_API_URL", "\"\"")
         // While true, "Start BetterX Plus" unlocks Plus locally so you can test it.
         // Set to "false" before publishing (and connect Play Billing).
-        buildConfigField("String", "SUPABASE_URL", "\"${supabaseUrl.trim()}\"")
-        buildConfigField("String", "SUPABASE_KEY", "\"${supabaseKey.trim()}\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"${firebaseApiKey.trim()}\"")
         buildConfigField("boolean", "TEST_UNLOCK", "true")
         // Keep only English strings from libraries (smaller APK).
         resourceConfigurations += listOf("en")

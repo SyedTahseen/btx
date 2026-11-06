@@ -164,15 +164,39 @@ fun AuthScreen() {
         }
     }
 
-    val canSubmit = !busy && when (mode) {
-        Mode.SignIn -> emailOk && pw.length >= 8
-        Mode.SignUp -> name.isNotBlank() && emailOk && pw.length >= 8 && agree
-        Mode.Forgot -> emailOk
-        Mode.Verify -> true
+    /** What's still missing for the current screen, or null when everything is filled in. */
+    fun missing(): String? = when (mode) {
+        Mode.SignIn -> when {
+            cleanEmail.isEmpty() -> "Enter your email address."
+            !emailOk -> "That email address doesn't look right."
+            pw.isEmpty() -> "Enter your password."
+            pw.length < 8 -> "Your password must be at least 8 characters."
+            else -> null
+        }
+        Mode.SignUp -> when {
+            name.isBlank() -> "Enter your name."
+            cleanEmail.isEmpty() -> "Enter your email address."
+            !emailOk -> "That email address doesn't look right."
+            pw.length < 8 -> "Choose a password with at least 8 characters."
+            !agree -> "Please agree to the Terms & Privacy Policy to continue."
+            else -> null
+        }
+        Mode.Forgot -> when {
+            cleanEmail.isEmpty() -> "Enter your email address."
+            !emailOk -> "That email address doesn't look right."
+            else -> null
+        }
+        Mode.Verify -> null
     }
 
     fun submit() {
-        if (!canSubmit) return
+        if (busy) return
+        val problem = missing()
+        if (problem != null) {
+            error = problem
+            info = null
+            return
+        }
         busy = true
         error = null
         info = null
@@ -190,7 +214,7 @@ fun AuthScreen() {
                     is AuthResult.Fail -> error = r.message
                     is AuthResult.Ok -> {
                         resetSent = true
-                        info = "If an account exists for $cleanEmail, we've sent a reset link. Open it and choose a new password, then log in. Didn't get it? Check your spam folder or resend."
+                        info = "Reset link sent. Check your inbox or spam folder."
                     }
                 }
                 Mode.Verify -> handle(Auth.signIn(cleanEmail, pw))
@@ -228,17 +252,7 @@ fun AuthScreen() {
                                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color(0xFFB4B5BA), modifier = Modifier.size(22.dp))
                                 }
                             }
-                            Text(
-                                when (m) {
-                                    Mode.SignIn -> "Log in"
-                                    Mode.SignUp -> "Sign up"
-                                    Mode.Forgot -> "Reset password"
-                                    Mode.Verify -> "Verify email"
-                                },
-                                style = MaterialTheme.typography.titleMedium,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.weight(1f),
-                            )
+                            Spacer(Modifier.weight(1f))
                             Spacer(Modifier.size(44.dp))
                         }
 
@@ -250,8 +264,8 @@ fun AuthScreen() {
 
                             Text(
                                 when (m) {
-                                    Mode.SignIn -> "Welcome back!"
-                                    Mode.SignUp -> "Create account"
+                                    Mode.SignIn -> "Welcome back"
+                                    Mode.SignUp -> "Create an account"
                                     Mode.Forgot -> "Forgot password?"
                                     Mode.Verify -> "Check your inbox"
                                 },
@@ -263,8 +277,8 @@ fun AuthScreen() {
                             Spacer(Modifier.height(6.dp))
                             Text(
                                 when (m) {
-                                    Mode.SignIn -> "Log in and pick up where your plan left off."
-                                    Mode.SignUp -> "Start your BetterX journey in a minute."
+                                    Mode.SignIn -> "Login to continue to your account"
+                                    Mode.SignUp -> "Let's start your journey with us today"
                                     Mode.Forgot -> "Enter your email and we'll send you a link to choose a new password."
                                     Mode.Verify -> "We sent a verification link to $cleanEmail. Open it, then come back here and tap the button below."
                                 },
@@ -382,12 +396,12 @@ fun AuthScreen() {
                             AuthButton(
                                 text = when {
                                     busy -> "Please wait…"
-                                    m == Mode.SignUp -> "Create account"
+                                    m == Mode.SignUp -> "Create an account"
                                     m == Mode.SignIn -> "Log in"
                                     m == Mode.Forgot -> if (resetSent) "Resend reset link" else "Send reset link"
                                     else -> "I've verified my email"
                                 },
-                                enabled = canSubmit,
+                                enabled = true,
                                 showArrow = !busy,
                                 onClick = { submit() },
                                                             )

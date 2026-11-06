@@ -73,8 +73,4 @@ object Persistence {
     fun wipe(ctx: Context) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
     }
-
-    /** Plain JSON for the user's "export my data" action. */
-    fun export(d: AppData): String =
-        Json { prettyPrint = true; encodeDefaults = true }.encodeToString(AppData.serializer(), d)
 }

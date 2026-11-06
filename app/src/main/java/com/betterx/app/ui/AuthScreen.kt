@@ -9,12 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -26,7 +24,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -35,8 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.betterx.app.data.Auth
 import com.betterx.app.data.AuthResult
-import com.betterx.app.data.GoogleResult
-import com.betterx.app.data.GoogleSignIn
+import com.betterx.app.data.ProfileSync
+import com.betterx.app.data.SyncResult
 import kotlinx.coroutines.launch
 
 private enum class Mode { SignIn, SignUp, Forgot, Verify }
@@ -45,7 +42,6 @@ private enum class Mode { SignIn, SignUp, Forgot, Verify }
 fun AuthScreen() {
     val store = LocalStore.current
     val scope = rememberCoroutineScope()
-    val ctx = LocalContext.current
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
     var mode by remember { mutableStateOf(Mode.SignUp) }
@@ -69,7 +65,7 @@ fun AuthScreen() {
     }
 
     /** Shared handling for sign-in style results. */
-    fun handle(r: AuthResult) {
+    suspend fun handle(r: AuthResult) {
         when (r) {
             is AuthResult.Fail -> error = r.message
             is AuthResult.Ok ->
@@ -81,25 +77,10 @@ fun AuthScreen() {
                         info = "Please verify your email to continue."
                     }
                 } else {
-                    store.signIn(r.uid, r.email.ifBlank { cleanEmail })
+                    // Restore the saved profile (nickname, relationship, goals). If it can't be loaded, sign in anyway.
+                    val remote = (ProfileSync.load(r.token, r.uid) as? SyncResult.Ok)?.value
+                    store.signIn(r.uid, r.email.ifBlank { cleanEmail }, r.refreshToken, remote)
                 }
-        }
-    }
-
-    fun googleSignIn() {
-        busy = true
-        error = null
-        info = null
-        scope.launch {
-            when (val g = GoogleSignIn.getIdToken(ctx)) {
-                is GoogleResult.Token -> when (val r = Auth.signInWithGoogle(g.idToken)) {
-                    is AuthResult.Ok -> store.signIn(r.uid, r.email, viaGoogle = true)
-                    is AuthResult.Fail -> error = r.message
-                }
-                GoogleResult.Cancelled -> Unit
-                is GoogleResult.Error -> error = g.message
-            }
-            busy = false
         }
     }
 
@@ -132,7 +113,7 @@ fun AuthScreen() {
         )
         Text(
             when (mode) {
-                Mode.SignUp -> "Your email is only used to sign in. Your plan and progress stay private on this device."
+                Mode.SignUp -> "Your account keeps your email and basic profile. Your plan and progress stay private on this device."
                 Mode.SignIn -> "Sign in to continue your plan."
                 Mode.Forgot -> "Enter your email and we'll send you a link to choose a new password."
                 Mode.Verify -> "We sent a verification link to $cleanEmail. Open it, then come back here and tap the button below."
@@ -225,16 +206,6 @@ fun AuthScreen() {
                 }
             },
         )
-
-        if ((mode == Mode.SignIn || mode == Mode.SignUp) && GoogleSignIn.available) {
-            Text("or", style = MaterialTheme.typography.labelMedium, color = muted, modifier = Modifier.align(Alignment.CenterHorizontally))
-            OutlinedButton(
-                onClick = { googleSignIn() },
-                enabled = !busy,
-                shape = CircleShape,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-            ) { Text("Continue with Google", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
-        }
 
         if (mode == Mode.Verify) {
             TextButton(

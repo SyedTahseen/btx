@@ -2,7 +2,6 @@ package com.betterx.app.ui
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,10 +41,10 @@ import com.betterx.app.BuildConfig
 import com.betterx.app.data.Auth
 import com.betterx.app.data.AuthResult
 import com.betterx.app.data.Content
-import com.betterx.app.data.GoogleResult
-import com.betterx.app.data.GoogleSignIn
 import com.betterx.app.data.ImportantDate
-import com.betterx.app.data.Persistence
+import com.betterx.app.data.ProfileSync
+import com.betterx.app.data.RemoteProfile
+import com.betterx.app.data.SyncResult
 import java.time.LocalDate
 import java.util.UUID
 import kotlinx.coroutines.launch
@@ -75,7 +75,7 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
     val ctx = LocalContext.current
     val askNotifications = rememberNotificationRequester()
 
-    var showWipe by remember { mutableStateOf(false) }
+    var showPassword by remember { mutableStateOf(false) }
     var showSignOut by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -86,12 +86,15 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
         SoftCard {
             Text(d.ownerEmail.ifBlank { "Signed in" }, style = MaterialTheme.typography.titleSmall)
             Text(
-                "Your email is only used to sign in. Your health data stays on this device.",
+                "Your email and basic profile are saved with your account. Your plan, check-ins and chats stay on this device.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp),
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
+            OutlinedButton(onClick = { showPassword = true }, modifier = Modifier.padding(top = 10.dp)) {
+                Text("Change password")
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { showSignOut = true }) { Text("Sign out") }
                 OutlinedButton(onClick = { showDelete = true }) {
                     Text("Delete account", color = MaterialTheme.colorScheme.error)
@@ -100,10 +103,18 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
         }
 
         SectionTitle("About you")
+        // Edit a draft, then Save: it is stored on this device and in your online profile.
+        var nick by remember { mutableStateOf(d.nickname) }
+        var rel by remember { mutableStateOf(d.relationship) }
+        val goals = remember { mutableStateListOf<String>().apply { addAll(d.concerns) } }
+        var saving by remember { mutableStateOf(false) }
+        var saveMsg by remember { mutableStateOf<String?>(null) }
+        var saveFailed by remember { mutableStateOf(false) }
+        val dirty = nick.trim() != d.nickname || rel != d.relationship || goals.toSet() != d.concerns.toSet()
         SoftCard {
             OutlinedTextField(
-                value = d.nickname,
-                onValueChange = { v -> store.update { it.copy(nickname = v.take(20)) } },
+                value = nick,
+                onValueChange = { nick = it.take(20); saveMsg = null },
                 label = { Text("Nickname") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -111,23 +122,56 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
             Text("Relationship", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Single", "Dating", "Partnered").forEach { r ->
-                    FilterChip(selected = d.relationship == r, onClick = { store.update { it.copy(relationship = r) } }, label = { Text(r) })
+                    FilterChip(selected = rel == r, onClick = { rel = r; saveMsg = null }, label = { Text(r) })
                 }
             }
             Text("Your goals", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Content.concerns.forEach { c ->
                     FilterChip(
-                        selected = c.id in d.concerns,
-                        onClick = {
-                            store.update {
-                                it.copy(concerns = if (c.id in it.concerns) it.concerns - c.id else it.concerns + c.id)
-                            }
-                        },
+                        selected = c.id in goals,
+                        onClick = { if (c.id in goals) goals.remove(c.id) else goals.add(c.id); saveMsg = null },
                         label = { Text(c.label) },
                     )
                 }
             }
+            saveMsg?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (saveFailed) MaterialTheme.colorScheme.error else BX.Lime,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+            }
+            Button(
+                enabled = dirty && !saving,
+                onClick = {
+                    val profile = RemoteProfile(nick.trim(), rel, goals.toList())
+                    saving = true
+                    saveMsg = null
+                    scope.launch {
+                        // Always keep it on the device first, then sync online.
+                        store.update(reschedule = true) {
+                            it.copy(nickname = profile.nickname, relationship = profile.relationship, concerns = profile.concerns)
+                        }
+                        nick = profile.nickname
+                        val session = store.freshSession()
+                        val res: SyncResult<Unit> = when (session) {
+                            is AuthResult.Ok -> ProfileSync.save(session.token, session.uid.ifBlank { d.ownerUid }, profile)
+                            is AuthResult.Fail -> SyncResult.Fail(session.message)
+                        }
+                        when (res) {
+                            is SyncResult.Ok -> { saveFailed = false; saveMsg = "Saved." }
+                            is SyncResult.Fail -> {
+                                saveFailed = true
+                                saveMsg = "Saved on this device, but not online yet: ${res.message}"
+                            }
+                        }
+                        saving = false
+                    }
+                },
+                modifier = Modifier.padding(top = 10.dp),
+            ) { Text(if (saving) "Saving…" else "Save changes") }
         }
 
         SectionTitle("Reminders")
@@ -194,20 +238,10 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
         SectionTitle("Privacy & security")
         SoftCard {
             Text(
-                "Your data is encrypted on this device, screenshots are blocked, and nothing is backed up to the cloud.",
+                "Your plan, check-ins and chats are encrypted on this device and never uploaded. Screenshots are blocked.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedButton(onClick = {
-                val send = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, Persistence.export(d))
-                }
-                ctx.startActivity(Intent.createChooser(send, "Export my data (unencrypted)"))
-            }, modifier = Modifier.padding(top = 8.dp)) { Text("Export my data") }
-            OutlinedButton(onClick = { showWipe = true }, modifier = Modifier.padding(top = 8.dp)) {
-                Text("Delete all my data", color = MaterialTheme.colorScheme.error)
-            }
         }
 
         SectionTitle("Subscription")
@@ -245,60 +279,45 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
         var pw by remember { mutableStateOf("") }
         var busy by remember { mutableStateOf(false) }
         var err by remember { mutableStateOf<String?>(null) }
-        val googleUser = d.viaGoogle
         AlertDialog(
             onDismissRequest = { if (!busy) showDelete = false },
             title = { Text("Delete your account?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        if (googleUser) "This permanently deletes your account and everything on this device. You'll confirm with Google."
-                        else "This permanently deletes your account and everything on this device. Enter your password to confirm.",
+                    Text("This permanently deletes your account, your online profile and everything on this device. Enter your password to confirm.")
+                    OutlinedTextField(
+                        value = pw,
+                        onValueChange = { pw = it.take(64); err = null },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        isError = err != null,
+                        supportingText = { err?.let { Text(it) } },
                     )
-                    if (!googleUser) {
-                        OutlinedTextField(
-                            value = pw,
-                            onValueChange = { pw = it.take(64); err = null },
-                            label = { Text("Password") },
-                            singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            isError = err != null,
-                            supportingText = { err?.let { Text(it) } },
-                        )
-                    } else {
-                        err?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    }
                 }
             },
             confirmButton = {
                 TextButton(
-                    enabled = (googleUser || pw.isNotEmpty()) && !busy,
+                    enabled = pw.isNotEmpty() && !busy,
                     onClick = {
                         busy = true
                         err = null
                         scope.launch {
-                            val auth: AuthResult = if (googleUser) {
-                                when (val g = GoogleSignIn.getIdToken(ctx)) {
-                                    is GoogleResult.Token -> Auth.signInWithGoogle(g.idToken)
-                                    GoogleResult.Cancelled -> AuthResult.Fail("")
-                                    is GoogleResult.Error -> AuthResult.Fail(g.message)
+                            when (val auth = Auth.signIn(d.ownerEmail, pw)) {
+                                is AuthResult.Fail -> { err = auth.message; busy = false }
+                                is AuthResult.Ok -> {
+                                    // Remove the online profile first (best effort), then the account itself.
+                                    ProfileSync.delete(auth.token, auth.uid.ifBlank { d.ownerUid })
+                                    val del = Auth.deleteAccount(auth.token)
+                                    if (del is AuthResult.Fail) {
+                                        err = del.message
+                                        busy = false
+                                    } else {
+                                        showDelete = false
+                                        store.wipeAll()
+                                    }
                                 }
-                            } else {
-                                Auth.signIn(d.ownerEmail, pw)
-                            }
-                            if (auth is AuthResult.Ok) {
-                                val del = Auth.deleteAccount(auth.token)
-                                if (del is AuthResult.Fail) {
-                                    err = del.message
-                                    busy = false
-                                } else {
-                                    showDelete = false
-                                    store.wipeAll()
-                                }
-                            } else if (auth is AuthResult.Fail) {
-                                err = auth.message.ifBlank { null }
-                                busy = false
                             }
                         }
                     },
@@ -308,17 +327,68 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
         )
     }
 
-    if (showWipe) {
+    if (showPassword) {
+        var cur by remember { mutableStateOf("") }
+        var next by remember { mutableStateOf("") }
+        var again by remember { mutableStateOf("") }
+        var busy by remember { mutableStateOf(false) }
+        var err by remember { mutableStateOf<String?>(null) }
+        val mismatch = again.isNotEmpty() && again != next
         AlertDialog(
-            onDismissRequest = { showWipe = false },
-            title = { Text("Delete everything?") },
-            text = { Text("This permanently erases your profile, plan history, check-ins, chats and posts from this device. It can't be undone.") },
-            confirmButton = {
-                TextButton(onClick = { showWipe = false; store.wipe() }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+            onDismissRequest = { if (!busy) showPassword = false },
+            title = { Text("Change password") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = cur,
+                        onValueChange = { cur = it.take(64); err = null },
+                        label = { Text("Current password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    )
+                    OutlinedTextField(
+                        value = next,
+                        onValueChange = { next = it.take(64); err = null },
+                        label = { Text("New password (8+ characters)") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    )
+                    OutlinedTextField(
+                        value = again,
+                        onValueChange = { again = it.take(64); err = null },
+                        label = { Text("Confirm new password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        isError = mismatch,
+                        supportingText = { if (mismatch) Text("Passwords don't match") },
+                    )
+                    err?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 }
             },
-            dismissButton = { TextButton(onClick = { showWipe = false }) { Text("Cancel") } },
+            confirmButton = {
+                TextButton(
+                    enabled = !busy && cur.isNotEmpty() && next.length >= 8 && next == again && next != cur,
+                    onClick = {
+                        busy = true
+                        err = null
+                        scope.launch {
+                            when (val r = Auth.changePassword(d.ownerEmail, cur, next)) {
+                                is AuthResult.Fail -> { err = r.message; busy = false }
+                                is AuthResult.Ok -> {
+                                    // The old refresh token stops working after a password change; keep the new one.
+                                    if (r.refreshToken.isNotEmpty()) store.update { it.copy(refreshToken = r.refreshToken) }
+                                    showPassword = false
+                                    Toast.makeText(ctx, "Password updated.", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    },
+                ) { Text(if (busy) "Saving…" else "Update") }
+            },
+            dismissButton = { TextButton(enabled = !busy, onClick = { showPassword = false }) { Text("Cancel") } },
         )
     }
 

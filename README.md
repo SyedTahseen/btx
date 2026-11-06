@@ -15,24 +15,36 @@ After a run finishes: GitHub repo > Actions > pick the run > Artifacts > **Bette
 The run log prints the APK size. The APK is signed with the debug key (fine for testing, not for the Play Store).
 `TEST_UNLOCK` in `app/build.gradle.kts` lets you unlock Plus locally for testing; set it to `"false"` before publishing.
 
-## Accounts (email + verification, Google, forgot password)
+## Accounts (email + verification, profile, change password)
 Accounts use **Firebase Authentication** through its REST API (no SDK, so the app stays small).
-Firebase sends the verification and reset emails itself. Only your identity (email) is in Firebase.
-Health data, plans and chats stay encrypted on the device.
+Firebase sends the verification and reset emails itself.
+Your email and a small profile (nickname, relationship, goals) are stored in Firebase.
+Plans, check-ins, chats and progress stay encrypted on the device and are never uploaded.
 
 - **Email:** sign up > verification email > user opens the link > taps "I've verified my email" > in. Sign-in is blocked until verified.
 - **Forgot password:** sends a reset link from Firebase.
-- **Google:** "Continue with Google" appears once `GOOGLE_WEB_CLIENT_ID` is set (see below). Google accounts are already verified.
-- **Delete account:** Profile > Account. Email users confirm with their password, Google users confirm with Google.
+- **Change password:** Profile > Account > Change password (asks for the current password first).
+- **Profile:** Profile > About you > edit, then **Save changes**. Saved on the device and in Cloud Firestore at `users/{uid}`; it is restored when you sign in on a new phone.
+- **Delete account:** Profile > Account. Confirms with the password, deletes the online profile and the Firebase account, and clears the device.
+- **Google sign-in:** removed for now. It will be added back later.
 
 Firebase setup (one time):
-1. Authentication > Sign-in method: enable **Email/Password** and **Google**.
-2. Project settings > Your apps > **Add app > Android**: package name `com.betterx.app`, SHA-1 = the one for `app/betterx-debug.keystore`
-   (`keytool -list -v -keystore app/betterx-debug.keystore -storepass android`). You can skip the other steps in that wizard.
-3. Authentication > Sign-in method > Google > **Web SDK configuration > Web client ID**: paste it into `GOOGLE_WEB_CLIENT_ID` in `app/build.gradle.kts`.
-4. Before the Play Store: sign with your own private upload key, and add the SHA-1 of the Play App Signing certificate in Firebase too.
+1. Authentication > Sign-in method: enable **Email/Password**.
+2. Build > **Firestore Database** > Create database, then Rules:
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /users/{uid} {
+         allow read, write: if request.auth != null && request.auth.uid == uid;
+       }
+     }
+   }
+   ```
+3. If the API key is restricted in Google Cloud, it must allow **Identity Toolkit API** and **Token Service API** (used to keep the session alive).
+4. Before the Play Store: sign with your own private upload key. Declare in the Data safety form that email and profile are collected.
 
-`app/betterx-debug.keystore` is a shared test key that keeps the SHA-1 stable across builds. It is not for production.
+`app/betterx-debug.keystore` is a shared test key that keeps the signature stable across builds. It is not for production.
 
 ## Design
 Black background, one neon-lime accent, olive tiles, big numbers, round 1-5 buttons and a pill navigation bar.
@@ -49,7 +61,7 @@ Navigation is four tabs: Today, Coach, Ghost, Progress. Programs, check-in and s
 | Progress & check-ins | `ui/Progress.kt` | Working. Streaks, trend chart, skill scores with re-assessment deltas |
 | Ghost (anonymous community) | `ui/Ghost.kt` | UI + local only. Random alias per post, PII filter, hide/report. **Needs a backend to be a real community** |
 | Smart reminders | `data/Reminders.kt` | Working via WorkManager: daily practice, weekly partner check-in, important dates. Discreet by default |
-| Privacy, profile, subscription | `ui/Profile.kt`, `data/Persistence.kt` | Encrypted storage (Android Keystore AES-GCM), screenshot block, export, delete-all. Paywall UI done; **Play Billing not connected** |
+| Privacy, profile, subscription | `ui/Profile.kt`, `data/Persistence.kt` | Encrypted storage (Android Keystore AES-GCM), screenshot block, editable profile synced to Firebase, change password. Paywall UI done; **Play Billing not connected** |
 
 ## Before you ship (important)
 - **AI Coach**: build a small backend that holds your LLM key and applies `CoachPrompt.SYSTEM`, then set `COACH_API_URL` in `app/build.gradle.kts`. Never put an API key in the app. Safety replies run on-device first either way.

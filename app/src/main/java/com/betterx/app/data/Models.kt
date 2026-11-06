@@ -70,11 +70,11 @@ data class AppData(
     val weeklyCheckInDow: Int = 7,
     val discreetNotifications: Boolean = true,
     val premium: Boolean = false,
-    // Account: only identity. All health data stays on the device.
+    // Account: identity + a Firebase refresh token (this file is encrypted). Plans and check-ins stay on the device.
     val signedIn: Boolean = false,
     val ownerUid: String = "",
     val ownerEmail: String = "",
-    val viaGoogle: Boolean = false,
+    val refreshToken: String = "",
 ) {
     companion object {
         fun fresh() = AppData(startDay = today(), ghost = Content.seedGhost())

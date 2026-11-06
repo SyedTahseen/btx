@@ -2,18 +2,13 @@ package com.betterx.app.data
 
 import com.betterx.app.BuildConfig
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
+import java.net.URLEncoder
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
 sealed class AuthResult {
@@ -22,6 +17,7 @@ sealed class AuthResult {
         val uid: String = "",
         val email: String = "",
         val token: String = "",
+        val refreshToken: String = "",
         val needsConfirm: Boolean = false,
     ) : AuthResult()
 
@@ -30,8 +26,8 @@ sealed class AuthResult {
 
 /**
  * Accounts through the Firebase Authentication REST API (no SDK, so the app stays small):
- * email + password with email verification, and Google sign-in.
- * Only identity lives there. Health data never leaves the device.
+ * email + password with email verification, password change and password reset.
+ * Identity and the basic profile (see [ProfileSync]) live in Firebase. Plans, check-ins and chats stay on the device.
  */
 object Auth {
     private const val BASE = "https://identitytoolkit.googleapis.com/v1/accounts"
@@ -57,15 +53,50 @@ object Auth {
         return s.copy(needsConfirm = !verified)
     }
 
-    /** Exchanges a Google ID token (from the Google account picker) for a Firebase session. */
-    suspend fun signInWithGoogle(googleIdToken: String): AuthResult {
-        val (json, fail) = call("signInWithIdp", buildJsonObject {
-            put("postBody", "id_token=$googleIdToken&providerId=google.com")
-            put("requestUri", "http://localhost")
-            put("returnIdpCredential", true)
+    /** Trades the stored refresh token for a fresh ID token (ID tokens only last an hour). */
+    suspend fun refresh(refreshToken: String): AuthResult {
+        return try {
+            val body = "grant_type=refresh_token&refresh_token=" + URLEncoder.encode(refreshToken, "UTF-8")
+            val r = Http.request(
+                "POST",
+                "https://securetoken.googleapis.com/v1/token?key=${BuildConfig.FIREBASE_API_KEY}",
+                body,
+                contentType = "application/x-www-form-urlencoded",
+            )
+            if (!r.ok) return failFrom(r)
+            AuthResult.Ok(
+                uid = r.json.str("user_id").orEmpty(),
+                token = r.json.str("id_token").orEmpty(),
+                refreshToken = r.json.str("refresh_token").orEmpty(),
+            )
+        } catch (e: IOException) {
+            AuthResult.Fail("No internet connection. Please try again.", "network")
+        } catch (e: Exception) {
+            AuthResult.Fail(GENERIC)
+        }
+    }
+
+    /**
+     * Changes the password. The current password is checked first by signing in with it,
+     * so a stolen unlocked phone can't change it silently. Returns the new session (Firebase
+     * revokes the old refresh tokens when the password changes).
+     */
+    suspend fun changePassword(email: String, currentPassword: String, newPassword: String): AuthResult {
+        val cur = signIn(email, currentPassword)
+        if (cur is AuthResult.Fail) {
+            return if (cur.code == "INVALID_LOGIN_CREDENTIALS" || cur.code == "INVALID_PASSWORD") {
+                AuthResult.Fail("Your current password is incorrect.", cur.code)
+            } else cur
+        }
+        cur as AuthResult.Ok
+        val (json, fail) = call("update", buildJsonObject {
+            put("idToken", cur.token)
+            put("password", newPassword)
             put("returnSecureToken", true)
         })
-        return fail ?: session(json!!, "")
+        if (fail != null) return fail
+        val next = session(json!!, email)
+        return next.copy(uid = next.uid.ifBlank { cur.uid }, token = next.token.ifBlank { cur.token })
     }
 
     suspend fun sendVerification(token: String): AuthResult {
@@ -115,39 +146,23 @@ object Auth {
         uid = j.str("localId").orEmpty(),
         email = j.str("email") ?: fallbackEmail,
         token = j.str("idToken").orEmpty(),
+        refreshToken = j.str("refreshToken").orEmpty(),
     )
 
+    private fun failFrom(r: HttpResp): AuthResult.Fail {
+        val raw = (r.json["error"] as? JsonObject)?.str("message").orEmpty()
+        val code = raw.substringBefore(" :").trim()
+        return AuthResult.Fail(friendly(code), code)
+    }
+
     private suspend fun call(endpoint: String, body: JsonObject): Pair<JsonObject?, AuthResult.Fail?> =
-        withContext(Dispatchers.IO) {
-            try {
-                val conn = (URL("$BASE:$endpoint?key=${BuildConfig.FIREBASE_API_KEY}").openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    connectTimeout = 15_000
-                    readTimeout = 20_000
-                    doOutput = true
-                    setRequestProperty("Content-Type", "application/json")
-                }
-                conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-                val status = conn.responseCode
-                val stream = if (status in 200..299) conn.inputStream else conn.errorStream
-                val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                val json = try {
-                    if (text.isBlank()) JsonObject(emptyMap()) else Json.parseToJsonElement(text).jsonObject
-                } catch (e: Exception) {
-                    JsonObject(emptyMap())
-                }
-                if (status in 200..299) {
-                    json to null
-                } else {
-                    val raw = (json["error"] as? JsonObject)?.str("message").orEmpty()
-                    val code = raw.substringBefore(" :").trim()
-                    null to AuthResult.Fail(friendly(code), code)
-                }
-            } catch (e: IOException) {
-                null to AuthResult.Fail("No internet connection. Please try again.", "network")
-            } catch (e: Exception) {
-                null to AuthResult.Fail(GENERIC)
-            }
+        try {
+            val r = Http.request("POST", "$BASE:$endpoint?key=${BuildConfig.FIREBASE_API_KEY}", body.toString())
+            if (r.ok) r.json to null else null to failFrom(r)
+        } catch (e: IOException) {
+            null to AuthResult.Fail("No internet connection. Please try again.", "network")
+        } catch (e: Exception) {
+            null to AuthResult.Fail(GENERIC)
         }
 
     private const val GENERIC = "Something went wrong. Please try again."
@@ -160,7 +175,9 @@ object Auth {
         code.startsWith("TOO_MANY_ATTEMPTS") -> "Too many attempts. Please wait a bit and try again."
         code == "INVALID_EMAIL" -> "That email address doesn't look right."
         code == "USER_DISABLED" -> "This account has been disabled."
-        code == "INVALID_ID_TOKEN" || code == "TOKEN_EXPIRED" -> "Your session expired. Please sign in again."
+        code == "INVALID_ID_TOKEN" || code == "TOKEN_EXPIRED" || code == "INVALID_REFRESH_TOKEN" ||
+            code == "CREDENTIAL_TOO_OLD_LOGIN_AGAIN" || code == "USER_NOT_FOUND" ->
+            "Your session expired. Please sign out and sign in again."
         else -> GENERIC
     }
 }

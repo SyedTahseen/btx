@@ -134,16 +134,18 @@ object Auth {
                 } else {
                     val raw = (json["error"] as? JsonObject)?.str("message").orEmpty()
                     val code = raw.substringBefore(" :").trim()
-                    null to AuthResult.Fail(friendly(code), code)
+                    null to AuthResult.Fail(friendly(code, status), code)
                 }
             } catch (e: IOException) {
                 null to AuthResult.Fail("No internet connection. Please try again.", "network")
             } catch (e: Exception) {
-                null to AuthResult.Fail("Something went wrong. Please try again.")
+                null to AuthResult.Fail(
+                    "Something went wrong (${e.javaClass.simpleName}: ${e.message.orEmpty().take(80)}). Please try again.",
+                )
             }
         }
 
-    private fun friendly(code: String): String = when {
+    private fun friendly(code: String, status: Int): String = when {
         code == "EMAIL_EXISTS" -> "An account with this email already exists. Try signing in."
         code == "INVALID_LOGIN_CREDENTIALS" || code == "INVALID_PASSWORD" || code == "EMAIL_NOT_FOUND" ->
             "Incorrect email or password."
@@ -151,10 +153,15 @@ object Auth {
         code.startsWith("TOO_MANY_ATTEMPTS") -> "Too many attempts. Please wait a bit and try again."
         code == "INVALID_EMAIL" -> "That email address doesn't look right."
         code == "USER_DISABLED" -> "This account has been disabled."
-        code == "OPERATION_NOT_ALLOWED" -> "Email sign-in isn't enabled for this app yet."
+        code == "OPERATION_NOT_ALLOWED" ->
+            "Email sign-in isn't enabled yet. In Firebase: Authentication > Sign-in method > Email/Password > Enable."
+        code == "CONFIGURATION_NOT_FOUND" ->
+            "Firebase sign-in isn't set up yet. In Firebase open Authentication, tap Get started, then enable Email/Password."
         code == "INVALID_ID_TOKEN" || code == "TOKEN_EXPIRED" -> "Your session expired. Please sign in again."
+        code.contains("blocked", ignoreCase = true) || code.contains("not allowed", ignoreCase = true) ->
+            "The API key is restricted. In Google Cloud Console > Credentials, allow Identity Toolkit API and remove app restrictions."
         code.contains("API key", ignoreCase = true) || code.contains("API_KEY") ->
-            "Accounts aren't configured correctly (API key)."
-        else -> "Something went wrong. Please try again."
+            "The Firebase API key isn't valid (API key)."
+        else -> "Something went wrong (${code.take(80).ifBlank { "HTTP $status" }}). Please try again."
     }
 }

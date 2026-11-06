@@ -4,19 +4,10 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -59,18 +50,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -81,9 +66,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -202,60 +185,15 @@ fun AuthScreen() {
         }
     }
 
-    // Soft, slowly drifting colour glows behind everything (the reference's pastel gradient, in BetterX colours).
-    val drift = rememberInfiniteTransition(label = "authGlow")
-    val d by drift.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(9000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "authGlowT",
-    )
-
-    BoxWithConstraints(
-        Modifier
-            .fillMaxSize()
-            .drawBehind {
-                val w = size.width
-                val h = size.height
-                drawRect(
-                    Brush.radialGradient(
-                        listOf(BX.Blue.copy(alpha = 0.20f), Color.Transparent),
-                        center = Offset(w * (0.20f + 0.15f * d), h * 0.04f),
-                        radius = w * 0.85f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        listOf(BX.Mint.copy(alpha = 0.10f), Color.Transparent),
-                        center = Offset(w * (0.95f - 0.20f * d), h * 0.16f),
-                        radius = w * 0.6f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        listOf(BX.Violet.copy(alpha = 0.22f), Color.Transparent),
-                        center = Offset(w * (0.80f - 0.30f * d), h * 0.97f),
-                        radius = w * 0.95f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        listOf(BX.Rose.copy(alpha = 0.12f), Color.Transparent),
-                        center = Offset(w * (0.10f + 0.20f * d), h * 0.88f),
-                        radius = w * 0.65f,
-                    ),
-                )
-            },
-    ) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
         val minPageHeight = maxHeight
 
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             AnimatedContent(
                 targetState = mode,
                 transitionSpec = {
-                    (fadeIn(tween(280, delayMillis = 80)) +
-                        slideInVertically(tween(340, easing = FastOutSlowInEasing)) { it / 24 }) togetherWith
-                        fadeOut(tween(120))
+                    (fadeIn(tween(260, delayMillis = 70)) + scaleIn(tween(260, delayMillis = 70), initialScale = 0.97f)) togetherWith
+                        fadeOut(tween(110))
                 },
                 label = "authMode",
             ) { m ->
@@ -266,14 +204,14 @@ fun AuthScreen() {
                     Column(Modifier.fillMaxWidth()) {
                         // ---------------------------------------------------------------- header
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).riseIn(0),
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             if (m == Mode.SignIn) {
                                 Spacer(Modifier.size(44.dp))
                             } else {
                                 RoundIconButton(onClick = { go(Mode.SignIn) }, description = "Back") {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color(0xFFB4B5BA), modifier = Modifier.size(22.dp))
                                 }
                             }
                             Text(
@@ -287,30 +225,14 @@ fun AuthScreen() {
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.weight(1f),
                             )
-                            RoundIconButton(
-                                onClick = {
-                                    Toast.makeText(
-                                        ctx,
-                                        "Trouble getting in? Check your email and password, or use \"Forgot password?\".",
-                                        Toast.LENGTH_LONG,
-                                    ).show()
-                                },
-                                description = "Help",
-                            ) { Text("?", fontWeight = FontWeight.SemiBold, fontSize = 16.sp) }
+                            Spacer(Modifier.size(44.dp))
                         }
 
                         Column(
-                            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                            Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            // ---------------------------------------------------------------- hero + title
-                            if (m != Mode.SignUp) {
-                                Spacer(Modifier.height(8.dp))
-                                Box(Modifier.popIn(1)) { BrandOrb() }
-                                Spacer(Modifier.height(10.dp))
-                            } else {
-                                Spacer(Modifier.height(36.dp))
-                            }
+                            Spacer(Modifier.height(32.dp))
 
                             Text(
                                 when (m) {
@@ -323,8 +245,7 @@ fun AuthScreen() {
                                 lineHeight = 36.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.riseIn(1),
-                            )
+                                                            )
                             Spacer(Modifier.height(6.dp))
                             Text(
                                 when (m) {
@@ -336,7 +257,7 @@ fun AuthScreen() {
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = muted,
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.riseIn(2).padding(horizontal = 8.dp),
+                                modifier = Modifier.padding(horizontal = 8.dp),
                             )
                             Spacer(Modifier.height(24.dp))
 
@@ -350,8 +271,7 @@ fun AuthScreen() {
                                         leading = { FieldIcon(Icons.Filled.Person) },
                                         keyboardType = KeyboardType.Text,
                                         imeAction = ImeAction.Next,
-                                        modifier = Modifier.riseIn(3),
-                                    )
+                                                                            )
                                 }
                                 if (m != Mode.Verify) {
                                     AuthField(
@@ -364,7 +284,7 @@ fun AuthScreen() {
                                                 Icon(
                                                     Icons.Filled.CheckCircle,
                                                     contentDescription = "Email looks good",
-                                                    tint = BX.Blue,
+                                                    tint = BX.Accent,
                                                     modifier = Modifier.size(22.dp),
                                                 )
                                             }
@@ -372,8 +292,7 @@ fun AuthScreen() {
                                         keyboardType = KeyboardType.Email,
                                         imeAction = if (m == Mode.Forgot) ImeAction.Done else ImeAction.Next,
                                         onDone = { if (m == Mode.Forgot) submit() },
-                                        modifier = Modifier.riseIn(4),
-                                    )
+                                                                            )
                                 }
                                 if (m == Mode.SignIn || m == Mode.SignUp) {
                                     AuthField(
@@ -394,20 +313,19 @@ fun AuthScreen() {
                                         keyboardType = KeyboardType.Password,
                                         imeAction = ImeAction.Done,
                                         onDone = { submit() },
-                                        modifier = Modifier.riseIn(5),
-                                    )
+                                                                            )
                                 }
                             }
 
                             // ---------------------------------------------------------------- mode specifics
                             if (m == Mode.SignUp) {
                                 Spacer(Modifier.height(12.dp))
-                                StrengthMeter(pw, Modifier.riseIn(6))
+                                StrengthMeter(pw, Modifier)
                                 Spacer(Modifier.height(14.dp))
                                 Row(
                                     Modifier
                                         .fillMaxWidth()
-                                        .riseIn(7)
+                                        
                                         .clickable(
                                             interactionSource = remember { MutableInteractionSource() },
                                             indication = null,
@@ -430,7 +348,7 @@ fun AuthScreen() {
                                 }
                             }
                             if (m == Mode.SignIn) {
-                                Row(Modifier.fillMaxWidth().riseIn(6), horizontalArrangement = Arrangement.End) {
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                                     TextButton(onClick = { go(Mode.Forgot) }) {
                                         Text("Forgot password?", style = MaterialTheme.typography.labelLarge, color = muted)
                                     }
@@ -460,8 +378,7 @@ fun AuthScreen() {
                                 enabled = canSubmit,
                                 showArrow = !busy,
                                 onClick = { submit() },
-                                modifier = Modifier.riseIn(8),
-                            )
+                                                            )
 
                             if (m == Mode.Verify) {
                                 TextButton(
@@ -486,7 +403,7 @@ fun AuthScreen() {
                             if (m == Mode.SignIn || m == Mode.SignUp) {
                                 Spacer(Modifier.height(22.dp))
                                 Row(
-                                    Modifier.fillMaxWidth().riseIn(9),
+                                    Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 ) {
@@ -496,7 +413,7 @@ fun AuthScreen() {
                                 }
                                 Spacer(Modifier.height(16.dp))
                                 Row(
-                                    Modifier.fillMaxWidth().riseIn(10),
+                                    Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 ) {
                                     SocialButton("Google", onClick = { comingSoon("Google") }) { GoogleIcon(Modifier.size(20.dp)) }
@@ -508,7 +425,7 @@ fun AuthScreen() {
 
                     // -------------------------------------------------------------------- footer
                     Row(
-                        Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp).riseIn(11),
+                        Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 20.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -542,21 +459,6 @@ fun AuthScreen() {
     }
 }
 
-// ============================================================================ motion
-
-/** Fades and floats an element up into place, [index] * 60 ms after it first appears (same springs as the rest of the app). */
-private fun Modifier.riseIn(index: Int): Modifier = composed {
-    val a = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        delay(index * 60L)
-        a.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = 300f))
-    }
-    graphicsLayer {
-        alpha = a.value.coerceIn(0f, 1f)
-        translationY = (1f - a.value) * 18.dp.toPx()
-    }
-}
-
 // ============================================================================ pieces
 
 @Composable
@@ -565,15 +467,11 @@ private fun RoundIconButton(
     description: String,
     content: @Composable () -> Unit,
 ) {
-    val src = remember { MutableInteractionSource() }
     Box(
         Modifier
             .size(44.dp)
-            .pressScale(src, 0.9f)
             .clip(CircleShape)
-            .background(BX.Card)
-            .border(1.dp, BX.CardBorder, CircleShape)
-            .clickable(interactionSource = src, indication = null, role = Role.Button, onClickLabel = description, onClick = onClick),
+            .clickable(role = Role.Button, onClickLabel = description, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content() }
 }
@@ -583,7 +481,7 @@ private fun FieldIcon(icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
 }
 
-/** Pill-shaped input. The border lights up with a mint → blue → violet gradient while focused. */
+/** Pill-shaped input on a plain card surface (slightly lighter while focused). */
 @Composable
 private fun AuthField(
     value: String,
@@ -599,13 +497,7 @@ private fun AuthField(
 ) {
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
-    val borderW by animateDpAsState(if (focused) 1.6.dp else 1.dp, tween(180), label = "fieldBorderW")
-    val fill by animateColorAsState(if (focused) BX.Chip else BX.Card, tween(180), label = "fieldFill")
-    val brush: Brush = if (focused) {
-        Brush.linearGradient(listOf(BX.Mint, BX.Blue, BX.Violet))
-    } else {
-        SolidColor(BX.CardBorder)
-    }
+    val fill by animateColorAsState(if (focused) BX.Chip else BX.Card, tween(160), label = "fieldFill")
 
     BasicTextField(
         value = value,
@@ -625,7 +517,6 @@ private fun AuthField(
                     .height(56.dp)
                     .clip(CircleShape)
                     .background(fill)
-                    .border(borderW, brush, CircleShape)
                     .padding(start = 18.dp, end = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -690,7 +581,6 @@ private fun RowScope.SocialButton(
             .pressScale(src)
             .clip(CircleShape)
             .background(BX.Card)
-            .border(1.dp, BX.CardBorder, CircleShape)
             .clickable(interactionSource = src, indication = null, role = Role.Button, onClickLabel = "Continue with $label", onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
@@ -705,15 +595,9 @@ private fun RowScope.SocialButton(
 private fun AuthCheckbox(checked: Boolean) {
     val bg by animateColorAsState(if (checked) BX.Pill else Color.Transparent, tween(160), label = "cbBg")
     val ring by animateColorAsState(if (checked) BX.Pill else Color(0xFF5A5B60), tween(160), label = "cbRing")
-    val pop by androidx.compose.animation.core.animateFloatAsState(
-        if (checked) 1f else 0.9f,
-        spring(dampingRatio = 0.5f, stiffness = 500f),
-        label = "cbPop",
-    )
     Box(
         Modifier
             .size(22.dp)
-            .graphicsLayer { scaleX = pop; scaleY = pop }
             .clip(RoundedCornerShape(7.dp))
             .background(bg)
             .border(1.5.dp, ring, RoundedCornerShape(7.dp)),
@@ -818,70 +702,6 @@ private fun GitHubIcon(modifier: Modifier = Modifier) {
         val k = size.width / 16f
         withTransform({ scale(k, k, pivot = Offset.Zero) }) {
             drawPath(path, Color.White)
-        }
-    }
-}
-
-// A path of the BetterX "X" from the launcher icon (108 x 108 viewport, centred on 54,54).
-private const val BRAND_X = "M34,30 L46,30 L54,44 L62,30 L74,30 L60,54 L74,78 L62,78 L54,64 L46,78 L34,78 L48,54 Z"
-
-/** Floating BetterX badge: soft mint halo, a rounded card and the yellow X, bobbing gently. */
-@Composable
-private fun BrandOrb(modifier: Modifier = Modifier) {
-    val xPath = remember { PathParser().parsePathString(BRAND_X).toPath() }
-    val t = rememberInfiniteTransition(label = "orb")
-    val bob by t.animateFloat(
-        initialValue = -5f,
-        targetValue = 5f,
-        animationSpec = infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "orbBob",
-    )
-    val halo by t.animateFloat(
-        initialValue = 0.28f,
-        targetValue = 0.5f,
-        animationSpec = infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "orbHalo",
-    )
-    Canvas(modifier.size(120.dp)) {
-        val s = size.width
-        val c = Offset(s / 2f, s / 2f)
-        drawCircle(
-            Brush.radialGradient(
-                listOf(BX.Mint.copy(alpha = halo), BX.Blue.copy(alpha = halo * 0.35f), Color.Transparent),
-                center = c,
-                radius = s * 0.5f,
-            ),
-            radius = s * 0.5f,
-            center = c,
-        )
-        translate(top = bob.dp.toPx()) {
-            val card = s * 0.56f
-            val tl = Offset(c.x - card / 2f, c.y - card / 2f)
-            drawRoundRect(
-                Brush.verticalGradient(listOf(Color(0xFF2E2F33), BX.Card), startY = tl.y, endY = tl.y + card),
-                topLeft = tl,
-                size = Size(card, card),
-                cornerRadius = CornerRadius(card * 0.3f),
-            )
-            drawRoundRect(
-                BX.CardBorder,
-                topLeft = tl,
-                size = Size(card, card),
-                cornerRadius = CornerRadius(card * 0.3f),
-                style = Stroke(1.dp.toPx()),
-            )
-            val k = card * 0.52f / 48f
-            withTransform({
-                translate(c.x, c.y)
-                scale(k, k, pivot = Offset.Zero)
-                translate(-54f, -54f)
-            }) {
-                drawPath(xPath, BX.Yellow)
-            }
-            // little satellites, like the sparkles around the reference mascot
-            drawCircle(BX.Mint, s * 0.035f, Offset(tl.x - s * 0.05f, tl.y + card * 0.2f))
-            drawCircle(BX.Violet, s * 0.028f, Offset(tl.x + card + s * 0.06f, tl.y + card * 0.75f))
-            drawCircle(Color.White, s * 0.02f, Offset(tl.x + card * 0.85f, tl.y - s * 0.04f))
         }
     }
 }

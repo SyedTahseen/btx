@@ -27,7 +27,7 @@ object Reminders {
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, "Reminders", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Practice, check-in and important-date reminders"
+                description = "Practice and check-in reminders"
                 lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
             },
         )
@@ -35,7 +35,7 @@ object Reminders {
 
     fun schedule(ctx: Context, d: AppData) {
         val wm = WorkManager.getInstance(ctx)
-        val anything = d.onboarded && (d.remindersEnabled || d.weeklyCheckInEnabled || d.dates.isNotEmpty())
+        val anything = d.onboarded && (d.remindersEnabled || d.weeklyCheckInEnabled)
         if (!anything) {
             wm.cancelUniqueWork(WORK)
             return
@@ -78,19 +78,6 @@ class ReminderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
 
         if (d.weeklyCheckInEnabled && today.dayOfWeek.value == d.weeklyCheckInDow) {
             post(2, if (discreet) "Weekly reminder" else "Relationship check-in", "A good time for your weekly check-in.")
-        }
-
-        d.dates.forEachIndexed { i, imp ->
-            val base = LocalDate.ofEpochDay(imp.day)
-            val candidates = if (imp.yearly) listOf(base.withYear(today.year), base.withYear(today.year + 1)) else listOf(base)
-            val when_ = when {
-                candidates.any { it == today } -> "today"
-                candidates.any { it == today.plusDays(1) } -> "tomorrow"
-                else -> null
-            }
-            if (when_ != null) {
-                post(10 + i, if (discreet) "Reminder" else imp.label, if (discreet) "Something you set is coming up $when_." else "${imp.label} is $when_.")
-            }
         }
         return Result.success()
     }

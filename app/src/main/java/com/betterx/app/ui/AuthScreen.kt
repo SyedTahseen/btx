@@ -99,7 +99,7 @@ fun AuthScreen() {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Spacer(Modifier.height(24.dp))
-        Text("BetterX", style = MaterialTheme.typography.labelLarge, color = BX.Lime)
+        Text("BetterX", style = MaterialTheme.typography.labelLarge, color = BX.Accent)
         Text(
             when (mode) {
                 Mode.SignUp -> "Create your\naccount"
@@ -167,7 +167,7 @@ fun AuthScreen() {
         }
 
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-        info?.let { Text(it, color = BX.Lime, style = MaterialTheme.typography.bodyMedium) }
+        info?.let { Text(it, color = BX.Accent, style = MaterialTheme.typography.bodyMedium) }
 
         PrimaryButton(
             text = when {

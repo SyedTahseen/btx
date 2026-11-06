@@ -38,9 +38,6 @@ data class GhostPost(
 )
 
 @Serializable
-data class ImportantDate(val id: String, val label: String, val day: Long, val yearly: Boolean = true)
-
-@Serializable
 data class ScoreSnapshot(val day: Long, val scores: Map<String, Int>)
 
 @Serializable
@@ -62,7 +59,6 @@ data class AppData(
     val ghost: List<GhostPost> = emptyList(),
     val hearted: Set<String> = emptySet(),
     val hidden: Set<String> = emptySet(),
-    val dates: List<ImportantDate> = emptyList(),
     val remindersEnabled: Boolean = true,
     val reminderHour: Int = 21,
     val reminderMinute: Int = 0,

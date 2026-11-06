@@ -80,17 +80,17 @@ fun HeroArt(modifier: Modifier = Modifier) {
             moveTo(0f, h * 0.95f)
             cubicTo(w * 0.25f, h * 0.55f, w * 0.55f, h * 1.0f, w, h * 0.7f)
         }
-        drawPath(squiggle, Color(0x66EEF22A), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+        drawPath(squiggle, Color(0x662CF5CF), style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
 
         drawCircle(
-            color = Color(0xFFDDF08A),
+            color = Color(0xFF2CF5CF),
             radius = 44.dp.toPx(),
             center = Offset(w * 0.42f, h * 0.64f),
             style = Stroke(7.dp.toPx()),
         )
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(Color(0xFFF8FB6A), BX.Lime),
+                colors = listOf(Color(0xFFFFF08A), BX.Yellow),
                 center = Offset(w * 0.58f, h * 0.36f),
                 radius = 60.dp.toPx(),
             ),
@@ -111,17 +111,17 @@ fun HeroArt(modifier: Modifier = Modifier) {
             if (i == 0) star.moveTo(x, y) else star.lineTo(x, y)
         }
         star.close()
-        drawPath(star, BX.Lime)
+        drawPath(star, BX.Blue)
 
         drawCircle(Color.White, 5.dp.toPx(), Offset(w * 0.84f, h * 0.10f))
-        drawCircle(Color(0xFFDDF08A), 8.dp.toPx(), Offset(w * 0.78f, h * 0.20f))
+        drawCircle(Color(0xFF2CF5CF), 8.dp.toPx(), Offset(w * 0.78f, h * 0.20f))
         drawCircle(Color.White, 4.dp.toPx(), Offset(w * 0.06f, h * 0.18f))
     }
 }
 
 @Composable
 private fun NumDot(n: Int) {
-    Box(Modifier.size(28.dp).clip(CircleShape).background(BX.Lime), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(28.dp).clip(CircleShape).background(BX.Accent), contentAlignment = Alignment.Center) {
         Text("$n", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
     }
 }

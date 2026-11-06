@@ -10,6 +10,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,11 +48,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -138,15 +146,15 @@ fun SoftCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = CardDefaults.cardColors(containerColor = container, contentColor = contentColorFor(container))
-    val border = BorderStroke(1.dp, BX.CardBorder)
-    val inner: @Composable ColumnScope.() -> Unit = { Column(Modifier.padding(16.dp), content = content) }
+    val inner: @Composable ColumnScope.() -> Unit = { Column(Modifier.padding(18.dp), content = content) }
     if (onClick != null) {
+        val src = remember { MutableInteractionSource() }
         Card(
             onClick = onClick,
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth().pressScale(src, 0.97f),
             shape = MaterialTheme.shapes.large,
             colors = colors,
-            border = border,
+            interactionSource = src,
             content = inner,
         )
     } else {
@@ -154,7 +162,6 @@ fun SoftCard(
             modifier = modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
             colors = colors,
-            border = border,
             content = inner,
         )
     }
@@ -185,26 +192,29 @@ fun PrimaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    arrows: Boolean = true,
+    arrows: Boolean = false,
 ) {
+    val src = remember { MutableInteractionSource() }
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.fillMaxWidth().height(56.dp),
+        interactionSource = src,
+        modifier = modifier.fillMaxWidth().height(56.dp).pressScale(src),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = BX.Lime,
+            containerColor = BX.Pill,
             contentColor = Color.Black,
             disabledContainerColor = BX.Chip,
-            disabledContentColor = Color(0xFF777777),
+            disabledContentColor = Color(0xFF77787D),
         ),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 17.sp,
                 modifier = Modifier.weight(1f).padding(start = 8.dp),
+                textAlign = if (arrows) TextAlign.Start else TextAlign.Center,
             )
             if (arrows) {
                 Text("›››", fontSize = 18.sp, color = LocalContentColor.current.copy(alpha = 0.55f))
@@ -215,20 +225,18 @@ fun PrimaryButton(
 
 @Composable
 fun ActionTile(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val src = remember { MutableInteractionSource() }
     Column(
-        modifier.clickable(role = Role.Button, onClick = onClick),
+        modifier
+            .pressScale(src)
+            .clickable(interactionSource = src, indication = null, role = Role.Button, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        val shape = RoundedCornerShape(18.dp)
         Box(
-            Modifier
-                .size(64.dp)
-                .clip(shape)
-                .background(Brush.verticalGradient(listOf(BX.Olive1, BX.Olive2)))
-                .border(1.dp, Color(0x33FFFFFF), shape),
+            Modifier.size(64.dp).clip(RoundedCornerShape(22.dp)).background(BX.Card),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = BX.OliveInk)
+            Icon(icon, contentDescription = null, tint = Color.White)
         }
         Spacer(Modifier.height(6.dp))
         Text(label, style = MaterialTheme.typography.labelMedium)
@@ -242,11 +250,14 @@ fun RatingRow(value: Int?, onChange: (Int) -> Unit, low: String? = null, high: S
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             (1..5).forEach { n ->
                 val sel = value == n
+                val bg by animateColorAsState(if (sel) BX.Pill else BX.Chip, tween(160), label = "ratingBg")
+                val scale by animateFloatAsState(if (sel) 1.12f else 1f, spring(dampingRatio = 0.55f, stiffness = 400f), label = "ratingScale")
                 Box(
                     Modifier
                         .size(48.dp)
+                        .graphicsLayer { scaleX = scale; scaleY = scale }
                         .clip(CircleShape)
-                        .background(if (sel) BX.Lime else BX.Chip)
+                        .background(bg)
                         .clickable(role = Role.RadioButton, onClick = { onChange(n) }),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -278,9 +289,16 @@ fun QuestionCard(q: Question, value: Int?, onChange: (Int) -> Unit) {
 }
 
 @Composable
-fun ThinBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 6.dp) {
-    Box(modifier.fillMaxWidth().height(height).clip(CircleShape).background(BX.Chip)) {
-        Box(Modifier.fillMaxHeight().fillMaxWidth(progress.coerceIn(0f, 1f)).clip(CircleShape).background(BX.Lime))
+fun ThinBar(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    height: Dp = 6.dp,
+    color: Color = BX.Accent,
+    track: Color = BX.Chip,
+) {
+    val p by animateFloatAsState(progress.coerceIn(0f, 1f), tween(600), label = "bar")
+    Box(modifier.fillMaxWidth().height(height).clip(CircleShape).background(track)) {
+        Box(Modifier.fillMaxHeight().fillMaxWidth(p).clip(CircleShape).background(color))
     }
 }
 
@@ -293,7 +311,7 @@ fun SegmentedProgress(total: Int, current: Int, modifier: Modifier = Modifier) {
                     .weight(1f)
                     .height(3.dp)
                     .clip(CircleShape)
-                    .background(if (i <= current) BX.Lime else Color(0x59FFFFFF)),
+                    .background(if (i <= current) BX.Pill else Color(0x33FFFFFF)),
             )
         }
     }
@@ -303,41 +321,42 @@ fun SegmentedProgress(total: Int, current: Int, modifier: Modifier = Modifier) {
 
 data class NavItem(val route: String, val label: String, val icon: ImageVector)
 
+/** Floating dark pill. The selected tab grows into a white pill (animated), like the reference. */
 @Composable
-fun PillNav(items: List<NavItem>, selected: String, onSelect: (String) -> Unit) {
-    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)) {
+fun PillNav(items: List<NavItem>, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 14.dp), contentAlignment = Alignment.Center) {
         Row(
-            Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(32.dp)).background(BX.Nav),
+            Modifier
+                .widthIn(max = 320.dp)
+                .fillMaxWidth(0.82f)
+                .height(64.dp)
+                .shadow(18.dp, RoundedCornerShape(32.dp), ambientColor = Color.Black, spotColor = Color.Black)
+                .clip(RoundedCornerShape(32.dp))
+                .background(BX.Nav)
+                .padding(6.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             items.forEach { item ->
                 val sel = item.route == selected
-                Box(
+                val weight by animateFloatAsState(if (sel) 1.9f else 1f, spring(dampingRatio = 0.8f, stiffness = 380f), label = "navW")
+                val bg by animateColorAsState(if (sel) BX.Pill else Color.Transparent, tween(220), label = "navBg")
+                val tint by animateColorAsState(if (sel) Color.Black else Color(0xFFB4B5BA), tween(220), label = "navTint")
+                val src = remember { MutableInteractionSource() }
+                Row(
                     Modifier
-                        .weight(1f)
+                        .weight(weight)
                         .fillMaxHeight()
-                        .clickable(role = Role.Tab, onClickLabel = item.label) { onSelect(item.route) },
-                    contentAlignment = Alignment.Center,
+                        .pressScale(src, 0.92f)
+                        .clip(CircleShape)
+                        .background(bg)
+                        .clickable(interactionSource = src, indication = null, role = Role.Tab, onClickLabel = item.label) {
+                            onSelect(item.route)
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
                 ) {
-                    if (sel) {
-                        Box(
-                            Modifier
-                                .align(Alignment.TopCenter)
-                                .width(26.dp)
-                                .height(3.dp)
-                                .clip(CircleShape)
-                                .background(BX.Lime),
-                        )
-                        Box(
-                            Modifier
-                                .size(52.dp)
-                                .background(
-                                    Brush.radialGradient(listOf(BX.Lime.copy(alpha = 0.28f), Color.Transparent)),
-                                    CircleShape,
-                                ),
-                        )
-                    }
-                    Icon(item.icon, contentDescription = item.label, tint = if (sel) BX.Lime else Color.White)
+                    Icon(item.icon, contentDescription = item.label, tint = tint, modifier = Modifier.size(24.dp))
                 }
             }
         }
@@ -348,7 +367,18 @@ fun PillNav(items: List<NavItem>, selected: String, onSelect: (String) -> Unit) 
 
 /** Rounded bars on a dark track with a white cap, like a tiny equalizer. */
 @Composable
-fun PracticeBars(values: List<Int>, labels: List<String>, highlight: Int, modifier: Modifier = Modifier) {
+fun PracticeBars(
+    values: List<Int>,
+    labels: List<String>,
+    highlight: Int,
+    modifier: Modifier = Modifier,
+    track: Color = BX.Track,
+    bar: Color = BX.Accent,
+    cap: Color = Color.White,
+    labelColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    chipBg: Color = Color.White,
+    chipInk: Color = Color.Black,
+) {
     val max = (values.maxOrNull() ?: 0).coerceAtLeast(1)
     Column(modifier.fillMaxWidth()) {
         Canvas(Modifier.fillMaxWidth().height(110.dp)) {
@@ -357,11 +387,11 @@ fun PracticeBars(values: List<Int>, labels: List<String>, highlight: Int, modifi
             val bw = (size.width - gap * (n - 1)) / n
             values.forEachIndexed { i, v ->
                 val x = i * (bw + gap)
-                drawRoundRect(BX.Track, Offset(x, 0f), Size(bw, size.height), CornerRadius(bw / 2))
+                drawRoundRect(track, Offset(x, 0f), Size(bw, size.height), CornerRadius(bw / 2))
                 if (v > 0) {
                     val h = (size.height * v / max).coerceAtLeast(bw)
-                    drawRoundRect(BX.Lime, Offset(x, size.height - h), Size(bw, h), CornerRadius(bw / 2))
-                    drawCircle(Color.White, bw / 2 * 0.55f, Offset(x + bw / 2, size.height - h + bw / 2))
+                    drawRoundRect(bar, Offset(x, size.height - h), Size(bw, h), CornerRadius(bw / 2))
+                    drawCircle(cap, bw / 2 * 0.55f, Offset(x + bw / 2, size.height - h + bw / 2))
                 }
             }
         }
@@ -372,9 +402,9 @@ fun PracticeBars(values: List<Int>, labels: List<String>, highlight: Int, modifi
                     Text(
                         l,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (hl) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (hl) chipInk else labelColor,
                         modifier = if (hl) {
-                            Modifier.background(Color.White, CircleShape).padding(horizontal = 8.dp, vertical = 3.dp)
+                            Modifier.background(chipBg, CircleShape).padding(horizontal = 8.dp, vertical = 3.dp)
                         } else {
                             Modifier.padding(vertical = 3.dp)
                         },

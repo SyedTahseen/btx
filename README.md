@@ -47,9 +47,11 @@ Firebase setup (one time):
 `app/betterx-debug.keystore` is a shared test key that keeps the signature stable across builds. It is not for production.
 
 ## Design
-Black background, one neon-lime accent, olive tiles, big numbers, round 1-5 buttons and a pill navigation bar.
-Colors and type live in `ui/Theme.kt`; shared components (buttons, tiles, charts, keypad, pill nav) in `ui/Common.kt`.
-Navigation is four tabs: Today, Coach, Ghost, Progress. Programs, check-in and settings open from Today.
+Modelled on a banking-app reference: soft graphite background, big animated number, light "pill" buttons,
+a white bottom sheet (drag the handle or tap it to expand), a floating pill navigation bar whose selected tab grows into a white pill,
+colourful program cards in yellow / mint / blue that fan out from a stack, a swipe-to-confirm control, and a full-screen green success screen.
+Colours and type live in `ui/Theme.kt`; shared components in `ui/Common.kt`; motion helpers (press spring, pop-in, count-up, swipe-to-confirm, success screen) in `ui/Motion.kt`.
+Screens slide in from the right and tabs cross-fade (`ui/Root.kt`). Navigation is four tabs: Today, Coach, Ghost, Progress.
 
 ## What's in the MVP
 | Feature | Where | State |
@@ -60,7 +62,7 @@ Navigation is four tabs: Today, Coach, Ghost, Progress. Programs, check-in and s
 | Courses, exercises, sessions | `ui/Learn.kt` | Working. 6 programs, 19 guided practices with timer and rating |
 | Progress & check-ins | `ui/Progress.kt` | Working. Streaks, trend chart, skill scores with re-assessment deltas |
 | Ghost (anonymous community) | `ui/Ghost.kt` | UI + local only. Random alias per post, PII filter, hide/report. **Needs a backend to be a real community** |
-| Smart reminders | `data/Reminders.kt` | Working via WorkManager: daily practice, weekly partner check-in, important dates. Discreet by default |
+| Smart reminders | `data/Reminders.kt` | Working via WorkManager: daily practice and weekly partner check-in. Discreet by default |
 | Privacy, profile, subscription | `ui/Profile.kt`, `data/Persistence.kt` | Encrypted storage (Android Keystore AES-GCM), screenshot block, editable profile synced to Firebase, change password. Paywall UI done; **Play Billing not connected** |
 
 ## Before you ship (important)

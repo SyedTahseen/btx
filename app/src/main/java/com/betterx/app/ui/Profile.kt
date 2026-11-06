@@ -1,6 +1,5 @@
 package com.betterx.app.ui
 
-import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
@@ -11,13 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -41,12 +36,9 @@ import com.betterx.app.BuildConfig
 import com.betterx.app.data.Auth
 import com.betterx.app.data.AuthResult
 import com.betterx.app.data.Content
-import com.betterx.app.data.ImportantDate
 import com.betterx.app.data.ProfileSync
 import com.betterx.app.data.RemoteProfile
 import com.betterx.app.data.SyncResult
-import java.time.LocalDate
-import java.util.UUID
 import kotlinx.coroutines.launch
 
 @Composable
@@ -79,7 +71,6 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
     var showSignOut by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    var showDate by remember { mutableStateOf(false) }
 
     ScrollPage("Profile & settings", onBack) {
         SectionTitle("Account")
@@ -139,7 +130,7 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
                 Text(
                     it,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (saveFailed) MaterialTheme.colorScheme.error else BX.Lime,
+                    color = if (saveFailed) MaterialTheme.colorScheme.error else BX.Accent,
                     modifier = Modifier.padding(top = 10.dp),
                 )
             }
@@ -206,42 +197,6 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
                 "Hide details so nothing sensitive shows on your lock screen",
                 d.discreetNotifications,
             ) { v -> store.update { it.copy(discreetNotifications = v) } }
-        }
-
-        SectionTitle("Important dates")
-        SoftCard {
-            if (d.dates.isEmpty()) {
-                Text(
-                    "Anniversaries, a partner's birthday, a date you want to plan for. We'll remind you the day before and on the day.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            d.dates.forEach { imp ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(imp.label, style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            LocalDate.ofEpochDay(imp.day).toString() + if (imp.yearly) " · every year" else "",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = { store.update(reschedule = true) { it.copy(dates = it.dates.filter { x -> x.id != imp.id }) } }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Remove")
-                    }
-                }
-            }
-            OutlinedButton(onClick = { showDate = true }, modifier = Modifier.padding(top = 8.dp)) { Text("Add a date") }
-        }
-
-        SectionTitle("Privacy & security")
-        SoftCard {
-            Text(
-                "Your plan, check-ins and chats are encrypted on this device and never uploaded. Screenshots are blocked.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
 
         SectionTitle("Subscription")
@@ -389,40 +344,6 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
                 ) { Text(if (busy) "Saving…" else "Update") }
             },
             dismissButton = { TextButton(enabled = !busy, onClick = { showPassword = false }) { Text("Cancel") } },
-        )
-    }
-
-    if (showDate) {
-        var label by remember { mutableStateOf("") }
-        var day by remember { mutableStateOf<Long?>(null) }
-        var yearly by remember { mutableStateOf(true) }
-        AlertDialog(
-            onDismissRequest = { showDate = false },
-            title = { Text("Add an important date") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = label,
-                        onValueChange = { label = it.take(30) },
-                        label = { Text("Label (e.g. Anniversary)") },
-                        singleLine = true,
-                    )
-                    OutlinedButton(onClick = {
-                        val c = LocalDate.now()
-                        DatePickerDialog(ctx, { _, y, m, dd -> day = LocalDate.of(y, m + 1, dd).toEpochDay() }, c.year, c.monthValue - 1, c.dayOfMonth).show()
-                    }) { Text(day?.let { LocalDate.ofEpochDay(it).toString() } ?: "Pick a date") }
-                    SwitchRow("Repeat every year", null, yearly) { yearly = it }
-                }
-            },
-            confirmButton = {
-                TextButton(enabled = label.isNotBlank() && day != null, onClick = {
-                    val imp = ImportantDate(UUID.randomUUID().toString(), label.trim(), day!!, yearly)
-                    store.update(reschedule = true) { it.copy(dates = it.dates + imp) }
-                    askNotifications()
-                    showDate = false
-                }) { Text("Save") }
-            },
-            dismissButton = { TextButton(onClick = { showDate = false }) { Text("Cancel") } },
         )
     }
 }

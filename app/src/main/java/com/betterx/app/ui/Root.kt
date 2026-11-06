@@ -1,6 +1,22 @@
 package com.betterx.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -71,43 +87,80 @@ fun MainNav() {
         NavItem("progress", "Progress", Icons.Filled.Star),
     )
     val route = nav.current
-    val name = route.substringBefore(':')
-    val arg = route.substringAfter(':', "")
     val isTab = tabs.any { it.route == route }
+    val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val ease = FastOutSlowInEasing
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = { if (isTab) PillNav(tabs, route) { nav.tab(it) } },
-    ) { pad ->
-        Box(Modifier.padding(pad).consumeWindowInsets(pad)) {
-            when (name) {
-                "home" -> HomeScreen(
-                    onExercise = { nav.go("exercise:$it") },
-                    onCheckIn = { nav.go("checkin") },
-                    onPrograms = { nav.go("programs") },
-                    onProfile = { nav.go("profile") },
-                    onPaywall = { nav.go("paywall") },
-                )
-                "coach" -> CoachScreen(
-                    onExercise = { nav.go("exercise:$it") },
-                    onPaywall = { nav.go("paywall") },
-                )
-                "ghost" -> GhostScreen(onOpen = { nav.go("post:$it") }, onNew = { nav.go("newpost") })
-                "progress" -> ProgressScreen(onCheckIn = { nav.go("checkin") }, onReassess = { nav.go("assess") })
-                "programs" -> LearnScreen(onBack = nav::back, onCourse = { nav.go("course:$it") })
-                "course" -> CourseScreen(
-                    id = arg,
-                    onBack = nav::back,
-                    onExercise = { nav.go("exercise:$it") },
-                    onPaywall = { nav.go("paywall") },
-                )
-                "exercise" -> ExerciseScreen(id = arg, onBack = nav::back)
-                "checkin" -> CheckInScreen(onBack = nav::back)
-                "assess" -> AssessScreen(onBack = nav::back)
-                "post" -> PostScreen(id = arg, onBack = nav::back)
-                "newpost" -> NewPostScreen(onBack = nav::back)
-                "profile" -> ProfileScreen(onBack = nav::back, onPaywall = { nav.go("paywall") })
-                "paywall" -> PaywallScreen(onBack = nav::back)
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { pad ->
+        Box(Modifier.fillMaxSize().padding(top = pad.calculateTopPadding())) {
+            // Pushing a screen slides it in from the right; going back slides it out; switching tabs cross-fades.
+            AnimatedContent(
+                targetState = route to nav.stack.size,
+                transitionSpec = {
+                    val from = initialState.second
+                    val to = targetState.second
+                    when {
+                        to > from ->
+                            (slideInHorizontally(tween(340, easing = ease)) { it / 3 } + fadeIn(tween(280))) togetherWith
+                                (slideOutHorizontally(tween(340, easing = ease)) { -it / 6 } + fadeOut(tween(220)))
+                        to < from ->
+                            (slideInHorizontally(tween(340, easing = ease)) { -it / 6 } + fadeIn(tween(280))) togetherWith
+                                (slideOutHorizontally(tween(340, easing = ease)) { it / 3 } + fadeOut(tween(220)))
+                        else ->
+                            (fadeIn(tween(260, delayMillis = 70)) + scaleIn(tween(260, delayMillis = 70), initialScale = 0.97f)) togetherWith
+                                fadeOut(tween(110))
+                    }
+                },
+                label = "route",
+            ) { (r, _) ->
+                val name = r.substringBefore(':')
+                val arg = r.substringAfter(':', "")
+                val tabbed = tabs.any { it.route == r }
+                // Tab screens leave room for the floating nav. Home draws its sheet under it on purpose.
+                val bottom = when {
+                    name == "home" -> 0.dp
+                    tabbed -> maxOf(pad.calculateBottomPadding(), navInset + 84.dp)
+                    else -> pad.calculateBottomPadding()
+                }
+                Box(Modifier.fillMaxSize().padding(bottom = bottom).consumeWindowInsets(pad)) {
+                    when (name) {
+                        "home" -> HomeScreen(
+                            onExercise = { nav.go("exercise:$it") },
+                            onCheckIn = { nav.go("checkin") },
+                            onPrograms = { nav.go("programs") },
+                            onProfile = { nav.go("profile") },
+                            onPaywall = { nav.go("paywall") },
+                        )
+                        "coach" -> CoachScreen(
+                            onExercise = { nav.go("exercise:$it") },
+                            onPaywall = { nav.go("paywall") },
+                        )
+                        "ghost" -> GhostScreen(onOpen = { nav.go("post:$it") }, onNew = { nav.go("newpost") })
+                        "progress" -> ProgressScreen(onCheckIn = { nav.go("checkin") }, onReassess = { nav.go("assess") })
+                        "programs" -> LearnScreen(onBack = nav::back, onCourse = { nav.go("course:$it") })
+                        "course" -> CourseScreen(
+                            id = arg,
+                            onBack = nav::back,
+                            onExercise = { nav.go("exercise:$it") },
+                            onPaywall = { nav.go("paywall") },
+                        )
+                        "exercise" -> ExerciseScreen(id = arg, onBack = nav::back)
+                        "checkin" -> CheckInScreen(onBack = nav::back)
+                        "assess" -> AssessScreen(onBack = nav::back)
+                        "post" -> PostScreen(id = arg, onBack = nav::back)
+                        "newpost" -> NewPostScreen(onBack = nav::back)
+                        "profile" -> ProfileScreen(onBack = nav::back, onPaywall = { nav.go("paywall") })
+                        "paywall" -> PaywallScreen(onBack = nav::back)
+                    }
+                }
+            }
+            AnimatedVisibility(
+                visible = isTab,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = slideInVertically(spring(dampingRatio = 0.8f, stiffness = 300f)) { it } + fadeIn(),
+                exit = slideOutVertically(tween(200)) { it } + fadeOut(tween(160)),
+            ) {
+                PillNav(tabs, route, onSelect = { nav.tab(it) })
             }
         }
     }

@@ -55,7 +55,7 @@ private fun TrendChart(a: List<Int>, b: List<Int>, modifier: Modifier = Modifier
             if (vals.size > 1) drawPath(path, color, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
         }
         series(b, Color.White)
-        series(a, BX.Lime)
+        series(a, BX.Accent)
     }
 }
 
@@ -95,7 +95,7 @@ fun ProgressScreen(onCheckIn: () -> Unit, onReassess: () -> Unit) {
             } else {
                 TrendChart(recent.map { it.confidence }, recent.map { it.anxiety })
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("● Confidence", color = BX.Lime, style = MaterialTheme.typography.labelMedium)
+                    Text("● Confidence", color = BX.Accent, style = MaterialTheme.typography.labelMedium)
                     Text("● Pressure", color = Color.White, style = MaterialTheme.typography.labelMedium)
                 }
             }
@@ -113,7 +113,7 @@ fun ProgressScreen(onCheckIn: () -> Unit, onReassess: () -> Unit) {
                     Text(
                         "$now" + if (delta != 0) "  (${if (delta > 0) "+" else ""}$delta)" else "",
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (delta >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        color = if (delta >= 0) BX.Accent else MaterialTheme.colorScheme.error,
                     )
                 }
                 ThinBar(now / 100f, Modifier.padding(top = 6.dp))
@@ -132,7 +132,7 @@ fun ProgressScreen(onCheckIn: () -> Unit, onReassess: () -> Unit) {
             SectionTitle("Recent check-ins")
             recent.reversed().take(3).forEach { c ->
                 SoftCard {
-                    Text(LocalDate.ofEpochDay(c.day).toString(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(LocalDate.ofEpochDay(c.day).toString(), style = MaterialTheme.typography.labelMedium, color = BX.Accent)
                     Text(
                         "Mood ${c.mood}/5 · Confidence ${c.confidence}/5 · Pressure ${c.anxiety}/5 · Closeness ${c.connection}/5",
                         style = MaterialTheme.typography.bodySmall,

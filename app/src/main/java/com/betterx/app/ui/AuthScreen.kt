@@ -108,6 +108,7 @@ fun AuthScreen() {
     var show by remember { mutableStateOf(false) }
     var agree by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var resetSent by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var info by remember { mutableStateOf<String?>(null) }
 
@@ -116,6 +117,18 @@ fun AuthScreen() {
     val pwVisual = if (show) VisualTransformation.None else PasswordVisualTransformation()
 
     fun go(m: Mode) {
+        // Moving between Log in and Sign up (or leaving Verify) starts with empty fields.
+        val fresh = (mode == Mode.SignIn && m == Mode.SignUp) ||
+            (mode == Mode.SignUp && m == Mode.SignIn) ||
+            mode == Mode.Verify
+        if (fresh) {
+            name = ""
+            email = ""
+            agree = false
+        }
+        pw = ""
+        show = false
+        resetSent = false
         mode = m
         error = null
         info = null
@@ -153,7 +166,7 @@ fun AuthScreen() {
 
     val canSubmit = !busy && when (mode) {
         Mode.SignIn -> emailOk && pw.length >= 8
-        Mode.SignUp -> emailOk && pw.length >= 8 && agree
+        Mode.SignUp -> name.isNotBlank() && emailOk && pw.length >= 8 && agree
         Mode.Forgot -> emailOk
         Mode.Verify -> true
     }
@@ -176,9 +189,8 @@ fun AuthScreen() {
                 Mode.Forgot -> when (val r = Auth.sendReset(cleanEmail)) {
                     is AuthResult.Fail -> error = r.message
                     is AuthResult.Ok -> {
-                        mode = Mode.SignIn
-                        pw = ""
-                        info = "If an account exists for that email, we've sent a reset link. Open it, choose a new password, then log in."
+                        resetSent = true
+                        info = "If an account exists for $cleanEmail, we've sent a reset link. Open it and choose a new password, then log in. Didn't get it? Check your spam folder or resend."
                     }
                 }
                 Mode.Verify -> handle(Auth.signIn(cleanEmail, pw))
@@ -269,7 +281,7 @@ fun AuthScreen() {
                                     AuthField(
                                         value = name,
                                         onValueChange = { name = it.take(20) },
-                                        placeholder = "Your name (optional)",
+                                        placeholder = "Your name",
                                         leading = { FieldIcon(Icons.Filled.Person) },
                                         keyboardType = KeyboardType.Text,
                                         imeAction = ImeAction.Next,
@@ -278,7 +290,7 @@ fun AuthScreen() {
                                 if (m != Mode.Verify) {
                                     AuthField(
                                         value = email,
-                                        onValueChange = { email = it.take(100); error = null; info = null },
+                                        onValueChange = { email = it.take(100); error = null; info = null; resetSent = false },
                                         placeholder = "Email address",
                                         leading = { FieldIcon(Icons.Filled.Email) },
                                         trailing = {
@@ -322,8 +334,6 @@ fun AuthScreen() {
                             // ---------------------------------------------------------------- mode specifics
                             if (m == Mode.SignUp) {
                                 Spacer(Modifier.height(12.dp))
-                                StrengthMeter(pw, Modifier)
-                                Spacer(Modifier.height(14.dp))
                                 Row(
                                     Modifier
                                         .fillMaxWidth()
@@ -374,7 +384,7 @@ fun AuthScreen() {
                                     busy -> "Please wait…"
                                     m == Mode.SignUp -> "Create account"
                                     m == Mode.SignIn -> "Log in"
-                                    m == Mode.Forgot -> "Send reset link"
+                                    m == Mode.Forgot -> if (resetSent) "Resend reset link" else "Send reset link"
                                     else -> "I've verified my email"
                                 },
                                 enabled = canSubmit,
@@ -606,43 +616,6 @@ private fun AuthCheckbox(checked: Boolean) {
         contentAlignment = Alignment.Center,
     ) {
         if (checked) Icon(Icons.Filled.Check, contentDescription = "Agreed", tint = Color.Black, modifier = Modifier.size(15.dp))
-    }
-}
-
-// ------------------------------------------------------------------ password strength
-
-private fun passwordScore(p: String): Int {
-    if (p.isEmpty()) return 0
-    var s = 0
-    if (p.length >= 8) s++
-    if (p.length >= 12) s++
-    if (p.any { it.isLowerCase() } && p.any { it.isUpperCase() }) s++
-    if (p.any { it.isDigit() }) s++
-    if (p.any { !it.isLetterOrDigit() }) s++
-    val capped = s.coerceAtMost(4)
-    return if (p.length < 8) capped.coerceAtMost(1) else capped.coerceAtLeast(1)
-}
-
-@Composable
-private fun StrengthMeter(password: String, modifier: Modifier = Modifier) {
-    val score = passwordScore(password)
-    val colors = listOf(BX.Coral, BX.Yellow, BX.Blue, BX.Mint)
-    val labels = listOf("", "Weak", "Fair", "Good", "Strong")
-    val activeColor = if (score == 0) MaterialTheme.colorScheme.onSurfaceVariant else colors[score - 1]
-    Column(modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(4) { i ->
-                val c by animateColorAsState(if (i < score) colors[i] else BX.Chip, tween(250), label = "strength$i")
-                Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(c))
-            }
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.End) {
-            Text(
-                if (score == 0) "Use 8+ characters" else labels[score],
-                style = MaterialTheme.typography.labelSmall,
-                color = activeColor,
-            )
-        }
     }
 }
 

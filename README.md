@@ -15,6 +15,23 @@ After a run finishes: GitHub repo > Actions > pick the run > Artifacts > **Bette
 The run log prints the APK size. The APK is signed with the debug key (fine for testing, not for the Play Store).
 `TEST_UNLOCK` in `app/build.gradle.kts` lets you unlock Plus locally for testing; set it to `"false"` before publishing.
 
+## Accounts (sign in / sign up)
+Email + password accounts use Firebase Authentication through its web API (no SDK, so the app stays small).
+Only your identity (email) goes to Firebase. Health data, plans and chats stay encrypted on the device.
+
+One-time setup:
+1. Go to console.firebase.google.com, create a project, then **Build > Authentication > Get started > Sign-in method > Email/Password > Enable**.
+2. **Project settings (gear) > General > Web API Key**: copy it.
+3. **GitHub:** repo **Settings > Secrets and variables > Actions > New repository secret**, name `FIREBASE_API_KEY`, paste the key. The next build includes it.
+4. **Local builds:** add `FIREBASE_API_KEY=your_key` to `~/.gradle/gradle.properties`.
+
+Without the key the sign-in screen shows a setup notice (and a "Skip" button while `TEST_UNLOCK` is on).
+
+Good to know:
+- Signing out keeps the local data; signing in with a *different* account on the same phone starts fresh.
+- Progress is not synced between phones yet (that would need a server and consent for storing health data).
+- Email verification and Google sign-in are not included yet. Add Terms/Privacy links before store release.
+
 ## Design
 Black background, one neon-lime accent, olive tiles, big numbers, round 1-5 buttons and a pill navigation bar.
 Colors and type live in `ui/Theme.kt`; shared components (buttons, tiles, charts, keypad, pill nav) in `ui/Common.kt`.

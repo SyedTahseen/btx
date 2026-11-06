@@ -41,6 +41,8 @@ fun AppRoot() {
         contentColor = MaterialTheme.colorScheme.onBackground,
     ) {
         when {
+            !d.signedIn ->
+                Box(Modifier.fillMaxSize().systemBarsPadding().imePadding()) { AuthScreen() }
             !d.onboarded ->
                 Box(Modifier.fillMaxSize().systemBarsPadding().imePadding()) { OnboardingScreen() }
             else -> MainNav()

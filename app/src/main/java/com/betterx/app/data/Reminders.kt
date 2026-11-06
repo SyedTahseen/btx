@@ -59,7 +59,7 @@ class ReminderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
 
     override suspend fun doWork(): Result {
         val d = Persistence.load(applicationContext)
-        if (!d.onboarded) return Result.success()
+        if (!d.onboarded || !d.signedIn) return Result.success()
         if (!NotificationManagerCompat.from(applicationContext).areNotificationsEnabled()) return Result.success()
 
         val today = LocalDate.now()

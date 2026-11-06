@@ -5,6 +5,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Firebase Web API key (identifies your project; it is not a secret).
+// Set it in ~/.gradle/gradle.properties as FIREBASE_API_KEY=... or as an environment variable (GitHub secret in CI).
+val firebaseApiKey: String = (project.findProperty("FIREBASE_API_KEY") as String?)
+    ?: System.getenv("FIREBASE_API_KEY")
+    ?: ""
+
 android {
     namespace = "com.betterx.app"
     compileSdk = 35
@@ -20,6 +26,7 @@ android {
         buildConfigField("String", "COACH_API_URL", "\"\"")
         // While true, "Start BetterX Plus" unlocks Plus locally so you can test it.
         // Set to "false" before publishing (and connect Play Billing).
+        buildConfigField("String", "FIREBASE_API_KEY", "\"${firebaseApiKey.trim()}\"")
         buildConfigField("boolean", "TEST_UNLOCK", "true")
         // Keep only English strings from libraries (smaller APK).
         resourceConfigurations += listOf("en")

@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,11 +38,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.betterx.app.BuildConfig
+import com.betterx.app.data.Auth
+import com.betterx.app.data.AuthResult
 import com.betterx.app.data.Content
 import com.betterx.app.data.ImportantDate
 import com.betterx.app.data.Persistence
 import java.time.LocalDate
 import java.util.UUID
+import kotlinx.coroutines.launch
 
 @Composable
 private fun SwitchRow(title: String, subtitle: String? = null, checked: Boolean, onChange: (Boolean) -> Unit) {
@@ -70,9 +74,29 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
     val askNotifications = rememberNotificationRequester()
 
     var showWipe by remember { mutableStateOf(false) }
+    var showSignOut by remember { mutableStateOf(false) }
+    var showDelete by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     var showDate by remember { mutableStateOf(false) }
 
     ScrollPage("Profile & settings", onBack) {
+        SectionTitle("Account")
+        SoftCard {
+            Text(d.ownerEmail.ifBlank { "Signed in" }, style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Your email is only used to sign in. Your health data stays on this device.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
+                OutlinedButton(onClick = { showSignOut = true }) { Text("Sign out") }
+                OutlinedButton(onClick = { showDelete = true }) {
+                    Text("Delete account", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+
         SectionTitle("About you")
         SoftCard {
             OutlinedTextField(
@@ -202,6 +226,67 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
             "BetterX ${BuildConfig.VERSION_NAME}. Education and coaching only, not medical care.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    if (showSignOut) {
+        AlertDialog(
+            onDismissRequest = { showSignOut = false },
+            title = { Text("Sign out?") },
+            text = { Text("Your plan and progress stay on this device and will be here when you sign back in.") },
+            confirmButton = { TextButton(onClick = { showSignOut = false; store.signOut() }) { Text("Sign out") } },
+            dismissButton = { TextButton(onClick = { showSignOut = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (showDelete) {
+        var pw by remember { mutableStateOf("") }
+        var busy by remember { mutableStateOf(false) }
+        var err by remember { mutableStateOf<String?>(null) }
+        AlertDialog(
+            onDismissRequest = { if (!busy) showDelete = false },
+            title = { Text("Delete your account?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("This permanently deletes your account and everything on this device. Enter your password to confirm.")
+                    OutlinedTextField(
+                        value = pw,
+                        onValueChange = { pw = it.take(64); err = null },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        isError = err != null,
+                        supportingText = { err?.let { Text(it) } },
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = pw.isNotEmpty() && !busy,
+                    onClick = {
+                        busy = true
+                        err = null
+                        scope.launch {
+                            val signedIn = Auth.signIn(d.ownerEmail, pw)
+                            if (signedIn is AuthResult.Fail) {
+                                err = signedIn.message
+                                busy = false
+                            } else {
+                                val del = Auth.delete((signedIn as AuthResult.Ok).idToken)
+                                if (del is AuthResult.Fail) {
+                                    err = del.message
+                                    busy = false
+                                } else {
+                                    showDelete = false
+                                    store.wipeAll()
+                                }
+                            }
+                        }
+                    },
+                ) { Text(if (busy) "Deleting…" else "Delete", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(enabled = !busy, onClick = { showDelete = false }) { Text("Cancel") } },
         )
     }
 

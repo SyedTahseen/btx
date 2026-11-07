@@ -1,13 +1,24 @@
 package com.betterx.app.ui
 
 import android.widget.Toast
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -52,6 +63,36 @@ private fun TagFooter(tags: List<String>, modifier: Modifier = Modifier) {
     }
 }
 
+/** Pulsing placeholder card shown while posts load. */
+@Composable
+private fun PostSkeleton() {
+    val t = rememberInfiniteTransition(label = "skeleton")
+    val x by t.animateFloat(
+        initialValue = -1f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(tween(1300, easing = LinearEasing), RepeatMode.Restart),
+        label = "shimmer",
+    )
+    val brush = Brush.horizontalGradient(
+        colors = listOf(BX.Chip, BX.CardBorder, BX.Chip),
+        startX = x * 600f,
+        endX = x * 600f + 500f,
+    )
+    @Composable
+    fun bar(w: Float, h: Int) = Box(Modifier.fillMaxWidth(w).height(h.dp).clip(RoundedCornerShape(50)).background(brush))
+    SoftCard {
+        bar(0.35f, 10)
+        Box(Modifier.height(10.dp))
+        bar(0.7f, 16)
+        Box(Modifier.height(10.dp))
+        bar(1f, 10)
+        Box(Modifier.height(6.dp))
+        bar(0.85f, 10)
+        Box(Modifier.height(14.dp))
+        bar(0.3f, 10)
+    }
+}
+
 private const val PII_MESSAGE = "Please remove links, emails or phone numbers."
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -80,9 +121,8 @@ fun GhostScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
         when {
             err != null -> {
                 Text(err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                TextButton(onClick = { scope.launch { GhostRepo.refresh(store) } }) { Text("Try again") }
             }
-            GhostRepo.loading && !GhostRepo.loaded -> Text("Loading…", color = muted)
+            GhostRepo.loading && !GhostRepo.loaded -> repeat(3) { PostSkeleton() }
             posts.isEmpty() -> Text("Nothing here yet. Be the first to share.", color = muted)
         }
 

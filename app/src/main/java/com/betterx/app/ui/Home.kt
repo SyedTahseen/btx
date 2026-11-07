@@ -310,58 +310,9 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     HeroPill("Practice", Icons.Filled.PlayArrow, true) { onExercise(next.id) }
-                    HeroPill("Check in", null, false, onCheckIn)
                     HeroPill("Programs", null, false, onPrograms)
                 }
 
-                // "Spending" tile from the reference: this week's minutes + scattered round icons for today's plan.
-                Spacer(Modifier.height(28.dp))
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(96.dp)
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(BX.Card),
-                ) {
-                    Column(Modifier.align(Alignment.CenterStart).padding(start = 20.dp)) {
-                        Text("This week", style = MaterialTheme.typography.bodyLarge, color = muted)
-                        Text("${perDay.sum()} min", fontSize = 24.sp, fontWeight = FontWeight.Medium)
-                    }
-                    val slots = listOf(0 to 30, 36 to 8, 72 to 34, 108 to 4)
-                    val shown = plan.items.take(slots.size)
-                    Box(Modifier.align(Alignment.CenterEnd).padding(end = 22.dp).size(width = 170.dp, height = 90.dp)) {
-                        shown.forEachIndexed { i, ex ->
-                            val c = domainColor(ex.domain)
-                            val isDone = ex.id in doneToday
-                            Box(
-                                Modifier
-                                    .offset(slots[i].first.dp, slots[i].second.dp)
-                                    .size(if (i % 2 == 0) 46.dp else 38.dp)
-                                    .popIn(i)
-                                    .clip(CircleShape)
-                                    .background(c),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                if (isDone) {
-                                    Icon(Icons.Filled.Check, contentDescription = "Done", tint = inkOn(c), modifier = Modifier.size(20.dp))
-                                } else {
-                                    Text(ex.title.take(1).uppercase(), color = inkOn(c), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                                }
-                            }
-                        }
-                        if (plan.items.size > slots.size) {
-                            Box(
-                                Modifier
-                                    .offset(146.dp, 0.dp)
-                                    .size(26.dp)
-                                    .popIn(slots.size)
-                                    .clip(CircleShape)
-                                    .background(BX.Chip),
-                                contentAlignment = Alignment.Center,
-                            ) { Text("+${plan.items.size - slots.size}", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
-                        }
-                    }
-                }
                 Spacer(Modifier.height(20.dp))
             }
         }
@@ -438,7 +389,7 @@ fun HomeScreen(
                         }
                     }
 
-                    Text("Last 7 days", style = MaterialTheme.typography.titleSmall, color = BX.SheetMuted, modifier = Modifier.padding(top = 22.dp, bottom = 12.dp))
+                    Text("Last 7 days · ${perDay.sum()} min", style = MaterialTheme.typography.titleSmall, color = BX.SheetMuted, modifier = Modifier.padding(top = 22.dp, bottom = 12.dp))
                     PracticeBars(
                         perDay, labels, highlight = 6,
                         track = BX.SheetChip, bar = BX.Blue, cap = Color.White,

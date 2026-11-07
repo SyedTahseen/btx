@@ -417,7 +417,7 @@ fun HomeScreen(
                                 color = if (delta >= 0) BX.Positive else MaterialTheme.colorScheme.error,
                             )
                         }
-                        ThinBar(now / 100f, Modifier.padding(top = 6.dp), color = BX.SheetInk, track = BX.SheetChip)
+                        ThinBar(now / 100f, Modifier.padding(top = 6.dp), color = BX.Accent, track = BX.SheetChip)
                     }
                     Text(
                         if (sinceAssess >= 14) "It's been $sinceAssess days. Re-assess to see your progress and refresh your plan."
@@ -482,7 +482,6 @@ fun HomeScreen(
                         }
                     }
                     Spacer(Modifier.height(16.dp))
-                    Disclaimer()
                 }
             }
         }

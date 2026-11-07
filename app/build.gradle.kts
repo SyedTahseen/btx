@@ -18,11 +18,8 @@ android {
         // Optional: URL of YOUR backend that proxies an LLM (never ship an API key in the app).
         // Leave empty to use the built-in on-device coach.
         buildConfigField("String", "COACH_API_URL", "\"\"")
-        // While true, "Start BetterX Plus" unlocks Plus locally so you can test it.
-        // Set to "false" before publishing (and connect Play Billing).
         // Firebase Web API key (public identifier, not a secret).
         buildConfigField("String", "FIREBASE_API_KEY", "\"AIzaSyBu7p1uD2vmMUZY4S5qGZjmtNGM2WE-M24\"")
-        buildConfigField("boolean", "TEST_UNLOCK", "true")
         // Keep only English strings from libraries (smaller APK).
         resourceConfigurations += listOf("en")
     }

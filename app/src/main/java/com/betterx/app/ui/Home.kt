@@ -448,7 +448,7 @@ fun HomeScreen(
                                     if (locked) {
                                         Icon(Icons.Filled.Lock, contentDescription = "Locked", modifier = Modifier.size(16.dp), tint = BX.SheetMuted)
                                         Text(
-                                            "  Unlock with Plus",
+                                            "  Unlock with Pro",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = BX.SheetMuted,
                                             modifier = Modifier.weight(1f),

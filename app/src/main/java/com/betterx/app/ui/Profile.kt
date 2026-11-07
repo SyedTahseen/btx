@@ -38,6 +38,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
@@ -253,7 +254,7 @@ private fun PlanCard(premium: Boolean, onClick: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                if (premium) "BetterX Plus is active" else "Upgrade to BetterX Plus",
+                if (premium) "BetterX Pro is active" else "Upgrade to BetterX Pro",
                 color = Color.Black,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
@@ -506,9 +507,9 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
                 GroupCard {
                     SettingsRow(
                         icon = { GlyphIcon(Icons.Filled.Star) },
-                        title = "Plan & subscription",
+                        title = "Subscription",
                         onClick = onPaywall,
-                        trailing = { TrailingValue(if (d.premium) "Plus" else "Free") },
+                        trailing = { TrailingValue(if (d.premium) "Pro" else "Free") },
                     )
                     RowDivider()
                     SettingsRow(
@@ -772,54 +773,112 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
 }
 
 @Composable
+private fun PlanFeature(text: String, tint: Color, textColor: Color) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.Top) {
+        Icon(Icons.Filled.Check, contentDescription = null, tint = tint, modifier = Modifier.padding(top = 2.dp).size(18.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(text, color = textColor, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun CurrentTag(onDark: Boolean) {
+    Box(
+        Modifier
+            .clip(CircleShape)
+            .background(if (onDark) BX.Chip else Color.Black.copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(
+            "Current plan",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (onDark) Color.White else Color.Black,
+        )
+    }
+}
+
+/** Subscription screen: the Free and Pro plans side by side as cards. Payments will be connected later. */
+@Composable
 fun PaywallScreen(onBack: () -> Unit) {
     val store = LocalStore.current
     val d = store.data
     val ctx = LocalContext.current
-    ScrollPage("BetterX Plus", onBack) {
-        SoftCard(container = MaterialTheme.colorScheme.primaryContainer) {
-            Text("Go deeper, faster", style = MaterialTheme.typography.titleLarge)
-            Text("Everything in Free, plus:", style = MaterialTheme.typography.bodyMedium)
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val upgradeSrc = remember { MutableInteractionSource() }
+
+    ScrollPage("Subscription", onBack) {
+        // ---------------------------------------------------------------- Free
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(BX.Card)
+                .padding(20.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Free", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                if (!d.premium) CurrentTag(onDark = true)
+            }
+            Text("Everything you need to get started.", style = MaterialTheme.typography.bodyMedium, color = muted, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
+            listOf(
+                "Your daily plan and check-ins",
+                "Progress tracking",
+                "The Ghost community",
+                "Reminders",
+                "5 coach messages a day",
+                "The first lesson of every course",
+            ).forEach { PlanFeature(it, BX.Accent, Color.White) }
         }
-        SoftCard {
+
+        // ---------------------------------------------------------------- Pro
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(BX.Yellow)
+                .padding(20.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Pro", style = MaterialTheme.typography.titleLarge, color = Color.Black, modifier = Modifier.weight(1f))
+                if (d.premium) CurrentTag(onDark = false)
+            }
+            Text(
+                "Go deeper, faster. Everything in Free, plus:",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Black.copy(alpha = 0.65f),
+                modifier = Modifier.padding(top = 2.dp, bottom = 10.dp),
+            )
             listOf(
                 "Unlimited private coaching",
                 "Every lesson in every course",
                 "Your full week-ahead plan",
                 "Priority access to new programs",
-            ).forEach { Text("✓  $it", modifier = Modifier.padding(vertical = 4.dp)) }
-        }
-        Text(
-            "Free includes your daily plan, check-ins, progress tracking, the Ghost community, reminders, and 5 coach messages a day.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (d.premium) {
-            Text("You're on BetterX Plus. Thank you.", style = MaterialTheme.typography.titleSmall)
-            if (BuildConfig.TEST_UNLOCK) {
-                OutlinedButton(onClick = { store.update { it.copy(premium = false) } }) { Text("(test) Switch back to Free") }
+            ).forEach { PlanFeature(it, Color.Black, Color.Black) }
+
+            if (!d.premium) {
+                Box(
+                    Modifier
+                        .padding(top = 16.dp)
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .pressScale(upgradeSrc)
+                        .clip(CircleShape)
+                        .background(Color(0xFF141517))
+                        .clickable(interactionSource = upgradeSrc, indication = null, role = Role.Button) {
+                            Toast.makeText(ctx, "Pro purchases are coming soon.", Toast.LENGTH_SHORT).show()
+                        },
+                    contentAlignment = Alignment.Center,
+                ) { Text("Upgrade to Pro", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp) }
             }
-        } else {
-            Button(
-                onClick = {
-                    if (BuildConfig.TEST_UNLOCK) {
-                        // Test-only shortcut. Set TEST_UNLOCK to "false" in app/build.gradle.kts before shipping.
-                        store.update { it.copy(premium = true) }
-                        onBack()
-                    } else {
-                        Toast.makeText(ctx, "Purchases aren't connected yet.", Toast.LENGTH_LONG).show()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Start BetterX Plus") }
-            TextButton(onClick = {
-                Toast.makeText(ctx, "Restore will check Google Play once billing is connected.", Toast.LENGTH_LONG).show()
-            }) { Text("Restore purchases") }
         }
+
         Text(
-            "Subscriptions renew automatically until cancelled in Google Play. Pricing is set in Play Console.",
+            "Subscriptions will renew automatically until cancelled in Google Play.",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = muted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

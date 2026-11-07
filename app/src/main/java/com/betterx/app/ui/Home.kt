@@ -6,7 +6,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.offset
@@ -14,18 +13,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -217,7 +217,6 @@ fun HomeScreen(
     val checkedIn = d.checkIns.any { it.day == day }
     val streak = Planner.streak(d, day)
     var showWeek by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf(false) }
 
     val perDay = (6 downTo 0).map { off -> d.completions.filter { it.day == day - off }.sumOf { it.minutes } }
     val labels = (6 downTo 0).map { off ->
@@ -228,60 +227,31 @@ fun HomeScreen(
     val initial = d.nickname.trim().firstOrNull()?.uppercase() ?: "B"
     val count = animatedCount(streak)
 
-    // Swipe up / down on any non-scrolling part of the screen (streak area, sheet header, handle) to expand or collapse.
-    fun Modifier.sheetSwipe(): Modifier = this.pointerInput(Unit) {
-        var acc = 0f
-        detectVerticalDragGestures(
-            onDragStart = { acc = 0f },
-            onDragEnd = { if (acc < -30f) expanded = true else if (acc > 30f) expanded = false },
-        ) { change, dy ->
-            change.consume()
-            acc += dy
-        }
-    }
+    // The whole screen is one scrolling page: the dark streak area scrolls away (fading and drifting up a little)
+    // and the white plan sheet slides up over it.
+    val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    var topPx by remember { mutableIntStateOf(0) }
 
-    // Swiping the plan list itself also moves the sheet: swipe up to expand, swipe down at the top to collapse.
-    val sheetScroll = remember {
-        object : NestedScrollConnection {
-            var acc = 0f
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source != NestedScrollSource.UserInput || expanded || available.y >= 0f) return Offset.Zero
-                acc += available.y
-                if (acc < -24f) {
-                    expanded = true
-                    acc = 0f
-                    return Offset(0f, available.y) // this swipe only expands; the list scrolls with the next one
-                }
-                return Offset.Zero
-            }
-
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                // Whatever the list couldn't use while pulling down means it is at the top.
-                if (source != NestedScrollSource.UserInput || !expanded || available.y <= 0f) return Offset.Zero
-                acc += available.y
-                if (acc > 24f) {
-                    expanded = false
-                    acc = 0f
-                    return Offset(0f, available.y)
-                }
-                return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                acc = 0f
-                return Velocity.Zero
-            }
-        }
-    }
-
-    Column(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val viewport = maxHeight
+    Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
         // ---------------------------------------------------------- dark top area
-        AnimatedVisibility(
-            visible = !expanded,
-            enter = expandVertically(spring(stiffness = 300f)) + fadeIn(),
-            exit = shrinkVertically(spring(stiffness = 300f)) + fadeOut(),
-        ) {
-            Column(Modifier.fillMaxWidth().sheetSwipe().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        run {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { topPx = it.height }
+                    .graphicsLayer {
+                        val p = if (topPx > 0) (scroll.value / topPx.toFloat()).coerceIn(0f, 1f) else 0f
+                        alpha = 1f - p
+                        translationY = scroll.value * 0.4f
+                        scaleX = 1f - 0.06f * p
+                        scaleY = 1f - 0.06f * p
+                    }
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         Modifier
@@ -400,24 +370,26 @@ fun HomeScreen(
         SheetTheme {
             Column(
                 Modifier
-                    .weight(1f)
+                    .fillMaxWidth()
                     .padding(horizontal = 12.dp)
+                    .heightIn(min = viewport)
                     .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
                     .background(BX.Sheet),
             ) {
-                // Drag handle: swipe up / down or tap to expand or collapse the sheet.
+                // Handle: tap to glide between the streak area and the plan.
                 Box(
                     Modifier
                         .fillMaxWidth()
                         .height(28.dp)
-                        .sheetSwipe()
-                        .clickable(role = Role.Button, onClickLabel = "Expand or collapse") { expanded = !expanded },
+                        .clickable(role = Role.Button, onClickLabel = "Scroll between streak and plan") {
+                            scope.launch { scroll.animateScrollTo(if (scroll.value < topPx / 2) topPx else 0) }
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(Modifier.width(40.dp).height(4.dp).clip(CircleShape).background(Color(0xFFDADADD)))
                 }
                 Row(
-                    Modifier.fillMaxWidth().sheetSwipe().padding(horizontal = 14.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SheetChipButton(Icons.AutoMirrored.Filled.List, if (showWeek) "Hide your week" else "See your week") {
@@ -440,9 +412,7 @@ fun HomeScreen(
 
                 Column(
                     Modifier
-                        .weight(1f)
-                        .nestedScroll(sheetScroll)
-                        .verticalScroll(rememberScrollState())
+                        .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                         .padding(top = 8.dp, bottom = 130.dp),
                 ) {
@@ -533,5 +503,6 @@ fun HomeScreen(
                 }
             }
         }
+    }
     }
 }

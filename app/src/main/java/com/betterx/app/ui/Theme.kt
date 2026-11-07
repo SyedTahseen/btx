@@ -7,6 +7,8 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -99,7 +101,10 @@ private val SheetScheme = lightColorScheme(
 
 @Composable
 fun SheetTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = SheetScheme, typography = Type, shapes = AppShapes, content = content)
+    MaterialTheme(colorScheme = SheetScheme, typography = Type, shapes = AppShapes) {
+        // Plain Text/Icon read LocalContentColor, which is white from the dark app surface: make it dark on the white sheet.
+        CompositionLocalProvider(LocalContentColor provides BX.SheetInk, content = content)
+    }
 }
 
 private val base = Typography()

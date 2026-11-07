@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -57,6 +58,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -278,6 +280,7 @@ private fun PlanCard(premium: Boolean, onClick: () -> Unit) {
 }
 
 /** Pill / rounded input on a plain card surface, a bit lighter while focused. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun ProfileField(
     value: String,
@@ -290,6 +293,13 @@ internal fun ProfileField(
     val source = remember { MutableInteractionSource() }
     val focused by source.collectIsFocusedAsState()
     val fill by animateColorAsState(if (focused) BX.Chip else BX.Card, tween(160), label = "profileFieldFill")
+    val bring = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    LaunchedEffect(focused, value) {
+        if (focused) {
+            kotlinx.coroutines.delay(250)
+            bring.bringIntoView()
+        }
+    }
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
@@ -299,7 +309,7 @@ internal fun ProfileField(
         textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
         cursorBrush = SolidColor(BX.Mint),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().bringIntoViewRequester(bring),
         decorationBox = { inner ->
             Box(
                 Modifier

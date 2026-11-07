@@ -16,6 +16,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -117,9 +118,10 @@ fun ScrollPage(
     title: String,
     onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    imePadding: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(Modifier.fillMaxSize()) {
+    Column(if (imePadding) Modifier.fillMaxSize().imePadding() else Modifier.fillMaxSize()) {
         ScreenHeader(title, onBack, actions)
         Column(
             Modifier

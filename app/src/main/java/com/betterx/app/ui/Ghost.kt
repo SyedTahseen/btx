@@ -8,6 +8,26 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -93,6 +113,73 @@ private fun PostSkeleton() {
     }
 }
 
+/** One field that holds finished tags as pills, followed by the text being typed. Pills flow inline, never below. */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
+@Composable
+private fun TagInput(
+    tags: List<String>,
+    input: String,
+    onInput: (String) -> Unit,
+    onCommit: () -> Unit,
+    onRemove: (String) -> Unit,
+) {
+    val bring = remember { BringIntoViewRequester() }
+    var focused by remember { mutableStateOf(false) }
+    LaunchedEffect(focused, input, tags.size) {
+        if (focused) {
+            kotlinx.coroutines.delay(250)
+            bring.bringIntoView()
+        }
+    }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(bring)
+            .clip(RoundedCornerShape(24.dp))
+            .background(if (focused) BX.Chip else BX.Card)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        if (tags.isEmpty() && input.isEmpty()) {
+            Text("Type a tag, then comma or Add", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp, modifier = Modifier.padding(start = 6.dp))
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            tags.forEach { t ->
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(BX.Mint.copy(alpha = 0.18f))
+                        .clickable { onRemove(t) }
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                ) {
+                    Text("#$t  ✕", color = BX.Mint, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+            BasicTextField(
+                value = input,
+                onValueChange = onInput,
+                singleLine = true,
+                textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
+                cursorBrush = SolidColor(BX.Mint),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onCommit() }),
+                modifier = Modifier
+                    .widthIn(min = 110.dp)
+                    .padding(horizontal = 6.dp)
+                    .onFocusChanged { focused = it.isFocused }
+                    .onKeyEvent { e ->
+                        if (e.type == KeyEventType.KeyDown && e.key == Key.Backspace && input.isEmpty() && tags.isNotEmpty()) {
+                            onRemove(tags.last()); true
+                        } else false
+                    },
+            )
+        }
+    }
+}
+
 private const val PII_MESSAGE = "Please remove links, emails or phone numbers."
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -172,7 +259,7 @@ fun PostScreen(id: String, onBack: () -> Unit) {
     val mine = post.uid == d.ownerUid
     val replies = GhostRepo.replies[id].orEmpty().filter { it.id !in d.hidden }
 
-    ScrollPage("Ghost", onBack) {
+    ScrollPage("Ghost", onBack, imePadding = true) {
         SoftCard {
             Text("${post.alias} · ${relTime(post.ts)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
             Text(post.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
@@ -300,11 +387,7 @@ fun NewPostScreen(onBack: () -> Unit) {
         tagInput = ""
     }
 
-    ScrollPage("Share anonymously", onBack) {
-        Text(
-            "Your post gets a random name and isn't shown with your profile. Don't include names, contact details or links.",
-            color = muted,
-        )
+    ScrollPage("Share anonymously", onBack, imePadding = true) {
         FieldLabel("Title")
         ProfileField(title, { title = it.take(80); error = null }, "A short headline")
         FieldLabel("Your experience")
@@ -319,26 +402,22 @@ fun NewPostScreen(onBack: () -> Unit) {
         FieldLabel("Tags (optional)")
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
-                ProfileField(
-                    value = tagInput,
-                    onValueChange = {
+                TagInput(
+                    tags = tags,
+                    input = tagInput,
+                    onInput = {
                         error = null
                         if (it.endsWith(",") || it.endsWith(" ") || it.endsWith("\n")) {
                             tagInput = it
                             commitTag()
                         } else tagInput = it.take(20)
                     },
-                    placeholder = "e.g. anxiety, communication",
+                    onCommit = { commitTag() },
+                    onRemove = { t -> tags = tags - t },
                 )
             }
             TextButton(onClick = { commitTag() }, enabled = tags.size < MAX_TAGS) { Text("Add") }
         }
-        if (tags.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                tags.forEach { t -> FilterChip(selected = true, onClick = { tags = tags - t }, label = { Text("#$t  ✕") }) }
-            }
-        }
-        Text("Up to $MAX_TAGS tags. Tap a tag to remove it.", style = MaterialTheme.typography.bodySmall, color = muted)
         error?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }

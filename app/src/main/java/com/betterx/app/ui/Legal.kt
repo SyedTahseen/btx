@@ -53,7 +53,7 @@ private val faqs = listOf(
     ),
     Faq(
         "Where is my data stored?",
-        "Your plan, check-ins, answers and coach chats are stored on your device in encrypted form. Your email and basic profile (name, relationship, goals and the optional \"About you\") are saved with your account online so you can restore them when you sign in again.",
+        "Your plan, check-ins, answers and coach chats are stored on your device in encrypted form. Your email and basic profile (name, relationship, goals and the optional \"About you\") are saved with your account online so you can restore them when you sign in again. Anything you post in Ghost is stored online so other members can read it.",
     ),
     Faq(
         "How is my privacy protected?",
@@ -69,7 +69,7 @@ private val faqs = listOf(
     ),
     Faq(
         "What is Ghost?",
-        "Ghost is an anonymous space to read and share. You appear under an alias, never your name or email.",
+        "Ghost is an anonymous community where members share experiences, reply to each other and show support with a heart. Every post and reply gets a random alias, never your name or email. You can delete your own posts and replies at any time, and report anything that breaks the guidelines.",
     ),
     Faq(
         "How do I change my name, goals or relationship status?",
@@ -116,7 +116,7 @@ private val termsSections = listOf(
     ),
     LegalSection(
         "7. Content you share",
-        "You keep ownership of what you write, including anything you share in Ghost. You give us permission to store and display it as needed to run the app. Please do not share personal details such as your full name, address or phone number.",
+        "You keep ownership of what you write, including anything you share in Ghost. Ghost posts and replies are visible to other members under a random alias. You give us permission to store and display your content as needed to run the app. Please do not share personal details such as your full name, address or phone number. We may remove content that breaks these terms or the community guidelines.",
     ),
     LegalSection(
         "8. Our content",
@@ -147,7 +147,7 @@ private val privacySections = listOf(
     ),
     LegalSection(
         "What we collect",
-        "Account: your email address and password, handled by Google Firebase Authentication.\n\nOnline profile: your name, relationship status, the optional \"About you\" text and your goals, saved with your account so you can restore them on a new device.\n\nOn your device only: your plan, check-ins, quiz answers and scores, coach conversations, Ghost activity, reminder settings and your Free or Pro status.",
+        "Account: your email address and password, handled by Google Firebase Authentication.\n\nOnline profile: your name, relationship status, the optional \"About you\" text and your goals, saved with your account so you can restore them on a new device.\n\nGhost: the posts, replies and hearts you share. They are stored online so other members can see them, under a random alias. They are stored with an internal account ID, which the app does not show to other members, so you can manage and delete your own content.\n\nOn your device only: your plan, check-ins, quiz answers and scores, coach conversations, reminder settings and your Free or Pro status.",
     ),
     LegalSection(
         "How we use it",
@@ -167,11 +167,11 @@ private val privacySections = listOf(
     ),
     LegalSection(
         "Sharing",
-        "We do not sell or rent your personal information. We share it only with the service providers that run the app for us, such as Google Firebase and, when purchases are available, Google Play, or when the law requires it.",
+        "We do not sell or rent your personal information. We share it only with the service providers that run the app for us, such as Google Firebase and, when purchases are available, Google Play, or when the law requires it. Anything you post in Ghost is visible to other BetterX members.",
     ),
     LegalSection(
         "Keeping and deleting your data",
-        "Your online profile is kept while your account exists. When you choose Delete account in Settings, we delete your account and online profile and clear everything stored on your device. Logging out does not delete your data on this device.",
+        "Your online profile is kept while your account exists. You can delete your own Ghost posts and replies at any time. When you choose Delete account in Settings, we delete your account, your online profile and your Ghost posts, and clear everything stored on your device. Replies you wrote on other members' posts may remain under their random alias. Logging out does not delete your data on this device.",
     ),
     LegalSection(
         "Your choices",

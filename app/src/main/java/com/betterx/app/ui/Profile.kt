@@ -90,6 +90,7 @@ import com.betterx.app.BuildConfig
 import com.betterx.app.data.Auth
 import com.betterx.app.data.AuthResult
 import com.betterx.app.data.Content
+import com.betterx.app.data.GhostApi
 import com.betterx.app.data.ProfileSync
 import com.betterx.app.data.RemoteProfile
 import com.betterx.app.data.SyncResult
@@ -278,7 +279,7 @@ private fun PlanCard(premium: Boolean, onClick: () -> Unit) {
 
 /** Pill / rounded input on a plain card surface, a bit lighter while focused. */
 @Composable
-private fun ProfileField(
+internal fun ProfileField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
@@ -319,7 +320,7 @@ private fun ProfileField(
 }
 
 @Composable
-private fun FieldLabel(text: String) {
+internal fun FieldLabel(text: String) {
     Text(
         text,
         style = MaterialTheme.typography.labelLarge,
@@ -648,7 +649,7 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
             title = { Text("Delete your account?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("This permanently deletes your account, your online profile and everything on this device. Enter your password to confirm.")
+                    Text("This permanently deletes your account, your online profile, your Ghost posts and everything on this device. Enter your password to confirm.")
                     OutlinedTextField(
                         value = pw,
                         onValueChange = { pw = it.take(64); err = null },
@@ -672,6 +673,7 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
                                 is AuthResult.Fail -> { err = auth.message; busy = false }
                                 is AuthResult.Ok -> {
                                     // Remove the online profile first (best effort), then the account itself.
+                                    GhostApi.deleteMyPosts(auth.token, auth.uid.ifBlank { d.ownerUid })
                                     ProfileSync.delete(auth.token, auth.uid.ifBlank { d.ownerUid })
                                     val del = Auth.deleteAccount(auth.token)
                                     if (del is AuthResult.Fail) {

@@ -74,6 +74,6 @@ data class AppData(
     val refreshToken: String = "",
 ) {
     companion object {
-        fun fresh() = AppData(startDay = today(), ghost = Content.seedGhost())
+        fun fresh() = AppData(startDay = today())
     }
 }

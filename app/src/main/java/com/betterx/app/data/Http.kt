@@ -5,10 +5,12 @@ import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 
-internal class HttpResp(val status: Int, val json: JsonObject) {
+/** [json] holds object responses; [array] holds array responses (Firestore runQuery). */
+internal class HttpResp(val status: Int, val json: JsonObject, val array: JsonArray = JsonArray(emptyList())) {
     val ok: Boolean get() = status in 200..299
 }
 
@@ -36,12 +38,23 @@ internal object Http {
             val status = conn.responseCode
             val stream = if (status in 200..299) conn.inputStream else conn.errorStream
             val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            var array = JsonArray(emptyList())
             val json = try {
-                if (text.isBlank()) JsonObject(emptyMap()) else Json.parseToJsonElement(text).jsonObject
+                if (text.isBlank()) {
+                    JsonObject(emptyMap())
+                } else {
+                    val el = Json.parseToJsonElement(text)
+                    if (el is JsonArray) {
+                        array = el
+                        JsonObject(emptyMap())
+                    } else {
+                        el.jsonObject
+                    }
+                }
             } catch (e: Exception) {
                 JsonObject(emptyMap())
             }
-            HttpResp(status, json)
+            HttpResp(status, json, array)
         } finally {
             conn.disconnect()
         }

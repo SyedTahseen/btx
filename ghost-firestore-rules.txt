@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Private profile (already in use)
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Ghost community
+    match /ghostPosts/{postId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.title is string && request.resource.data.title.size() <= 80
+        && request.resource.data.body is string && request.resource.data.body.size() <= 1000
+        && request.resource.data.topic is string && request.resource.data.topic.size() <= 120;
+
+      // Anyone signed in may only change the like / reply counters (by 1).
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeCount', 'replyCount']);
+
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+
+      match /replies/{replyId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.text is string && request.resource.data.text.size() <= 500;
+        allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      }
+
+      // One like document per member, named by their uid.
+      match /likes/{uid} {
+        allow read: if request.auth != null;
+        allow create, delete: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Reports: write-only for members (you review them in the console)
+    match /ghostReports/{id} {
+      allow create: if request.auth != null && request.resource.data.reporter == request.auth.uid;
+    }
+  }
+}

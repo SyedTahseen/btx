@@ -30,7 +30,7 @@ Plans, check-ins, chats and progress stay encrypted on the device and are never 
 
 Firebase setup (one time):
 1. Authentication > Sign-in method: enable **Email/Password**.
-2. Build > **Firestore Database** > Create database, then Rules:
+2. Build > **Firestore Database** > Create database, then Rules. For the Ghost community paste the whole of `ghost-firestore-rules.txt` (it includes the `users` rule below):
    ```
    rules_version = '2';
    service cloud.firestore {

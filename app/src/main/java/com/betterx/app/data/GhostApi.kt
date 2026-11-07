@@ -72,10 +72,10 @@ object GhostApi {
 
     private fun failMessage(r: HttpResp): String = when (r.status) {
         401 -> "Your session expired. Please sign out and sign in again."
-        403 -> "The community isn't switched on yet. Add the Ghost rules in Firebase (Firestore Database > Rules)."
+        403 -> "The community isn't switched on yet. Publish the rules from ghost-firestore-rules.txt in Firebase (Firestore Database > Rules)."
         404 -> "The community isn't set up yet."
         429 -> "Too many attempts. Please wait a bit and try again."
-        else -> "Something went wrong. Please try again."
+        else -> "Something went wrong (code ${r.status}). Please try again."
     }
 
     private suspend fun <T> guarded(token: String, block: suspend (pid: String) -> SyncResult<T>): SyncResult<T> {
@@ -85,7 +85,7 @@ object GhostApi {
         } catch (e: IOException) {
             SyncResult.Fail(OFFLINE)
         } catch (e: Exception) {
-            SyncResult.Fail("Something went wrong. Please try again.")
+            SyncResult.Fail("Something went wrong (${e.javaClass.simpleName}). Please try again.")
         }
     }
 

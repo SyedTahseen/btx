@@ -314,7 +314,6 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     HeroPill("Practice", Icons.Filled.PlayArrow, true) { onExercise(next.id) }
-                    HeroPill("Check in", null, false, onCheckIn)
                     HeroPill("Programs", null, false, onPrograms)
                 }
 

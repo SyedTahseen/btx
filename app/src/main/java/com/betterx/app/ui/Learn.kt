@@ -136,17 +136,13 @@ private fun ProgramCard(index: Int, course: Course, done: Int, forYou: Boolean, 
 @Composable
 fun LearnScreen(onBack: () -> Unit, onCourse: (String) -> Unit) {
     val d = LocalStore.current.data
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val recommended = d.concerns.mapNotNull { Content.concern(it)?.courseId }.distinct()
     val ordered = Content.courses.sortedBy { if (it.id in recommended) 0 else 1 }
     ScrollPage("Programs", onBack) {
-        Text("Short lessons plus guided practice. The first ones are picked for your goals.", color = muted)
         ordered.forEachIndexed { i, c ->
             val done = c.lessons.indices.count { "${c.id}:$it" in d.lessonsDone }
             ProgramCard(i, c, done, c.id in recommended) { onCourse(c.id) }
         }
-        Spacer(Modifier.height(4.dp))
-        Disclaimer()
     }
 }
 

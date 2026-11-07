@@ -51,7 +51,7 @@ Modelled on a banking-app reference: soft graphite background, big animated numb
 a white bottom sheet (drag the handle or tap it to expand), a floating pill navigation bar whose selected tab grows into a white pill,
 colourful program cards in yellow / mint / blue that fan out from a stack, a swipe-to-confirm control, and a full-screen green success screen.
 Colours and type live in `ui/Theme.kt`; shared components in `ui/Common.kt`; motion helpers (press spring, pop-in, count-up, swipe-to-confirm, success screen) in `ui/Motion.kt`.
-Screens slide in from the right and tabs cross-fade (`ui/Root.kt`). Navigation is four tabs: Today, Coach, Ghost, Progress.
+Screens slide in from the right and tabs cross-fade (`ui/Root.kt`). Navigation is three tabs: Today, Coach, Ghost. Today also holds check-in, programs, skills and re-assessment.
 
 ## What's in the MVP
 | Feature | Where | State |
@@ -60,7 +60,7 @@ Screens slide in from the right and tabs cross-fade (`ui/Root.kt`). Navigation i
 | Personalized plan | `data/Planner.kt` | Working. Adapts daily from scores, goals, check-ins, adherence, relationship status |
 | AI Coach | `data/CoachEngine.kt`, `ui/Coach.kt` | On-device rule-based coach by default (safety replies for crisis/abuse/medical). Set `COACH_API_URL` to your backend to use an LLM |
 | Courses, exercises, sessions | `ui/Learn.kt` | Working. 6 programs, 19 guided practices with timer and rating |
-| Progress & check-ins | `ui/Progress.kt` | Working. Streaks, trend chart, skill scores with re-assessment deltas |
+| Progress & check-ins | `ui/CheckIn.kt` and the Today screen | Working. Check-in, skill scores with re-assessment deltas |
 | Ghost (anonymous community) | `ui/Ghost.kt` | UI + local only. Random alias per post, PII filter, hide/report. **Needs a backend to be a real community** |
 | Smart reminders | `data/Reminders.kt` | Working via WorkManager: daily practice and weekly partner check-in. Discreet by default |
 | Privacy, profile, subscription | `ui/Profile.kt`, `data/Persistence.kt` | Encrypted storage (Android Keystore AES-GCM), screenshot block, editable profile synced to Firebase, change password. Paywall UI done; **Play Billing not connected** |

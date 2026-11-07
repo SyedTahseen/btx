@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -206,6 +207,7 @@ fun HomeScreen(
     onExercise: (String) -> Unit,
     onCheckIn: () -> Unit,
     onNotifications: () -> Unit,
+    onReassess: () -> Unit,
     onPrograms: () -> Unit,
     onProfile: () -> Unit,
     onPaywall: () -> Unit,
@@ -312,6 +314,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     HeroPill("Practice", Icons.Filled.PlayArrow, true) { onExercise(next.id) }
+                    HeroPill("Check in", null, false, onCheckIn)
                     HeroPill("Programs", null, false, onPrograms)
                 }
 
@@ -397,6 +400,33 @@ fun HomeScreen(
                         track = BX.SheetChip, bar = BX.Blue, cap = Color.White,
                         labelColor = BX.SheetMuted, chipBg = BX.SheetInk, chipInk = Color.White,
                     )
+
+                    // Skills (from the assessment) live here now, under the plan.
+                    val firstScores = d.scoreHistory.firstOrNull()?.scores ?: d.scores
+                    val latestScores = d.scoreHistory.lastOrNull()?.scores ?: d.scores
+                    val sinceAssess = d.scoreHistory.lastOrNull()?.let { day - it.day } ?: 0L
+                    Text("Your skills", style = MaterialTheme.typography.titleSmall, color = BX.SheetMuted, modifier = Modifier.padding(top = 22.dp))
+                    Content.domains.forEach { dom ->
+                        val now = latestScores[dom] ?: 50
+                        val delta = now - (firstScores[dom] ?: now)
+                        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(Content.label(dom), style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "$now" + if (delta != 0) "  (${if (delta > 0) "+" else ""}$delta)" else "",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (delta >= 0) BX.Positive else MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        ThinBar(now / 100f, Modifier.padding(top = 6.dp), color = BX.SheetInk, track = BX.SheetChip)
+                    }
+                    Text(
+                        if (sinceAssess >= 14) "It's been $sinceAssess days. Re-assess to see your progress and refresh your plan."
+                        else "Re-assess every couple of weeks to see how your skills change.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = BX.SheetMuted,
+                        modifier = Modifier.padding(top = 14.dp),
+                    )
+                    OutlinedButton(onClick = onReassess, modifier = Modifier.padding(top = 8.dp)) { Text("Re-assess") }
 
                     AnimatedVisibility(visible = showWeek) {
                         Column(Modifier.padding(top = 18.dp)) {

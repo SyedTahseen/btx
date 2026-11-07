@@ -89,7 +89,6 @@ fun MainNav() {
         NavItem("home", "Today", Icons.Filled.Home),
         NavItem("coach", "Coach", Icons.Filled.Face),
         NavItem("ghost", "Ghost", Icons.Filled.Person),
-        NavItem("progress", "Progress", Icons.Filled.Star),
     )
     val route = nav.current
     val isTab = tabs.any { it.route == route }
@@ -133,6 +132,7 @@ fun MainNav() {
                             onExercise = { nav.go("exercise:$it") },
                             onCheckIn = { nav.go("checkin") },
                             onNotifications = { nav.go("notifications") },
+                            onReassess = { nav.go("assess") },
                             onPrograms = { nav.go("programs") },
                             onProfile = { nav.go("profile") },
                             onPaywall = { nav.go("paywall") },
@@ -142,7 +142,6 @@ fun MainNav() {
                             onPaywall = { nav.go("paywall") },
                         )
                         "ghost" -> GhostScreen(onOpen = { nav.go("post:$it") }, onNew = { nav.go("newpost") })
-                        "progress" -> ProgressScreen(onCheckIn = { nav.go("checkin") }, onReassess = { nav.go("assess") })
                         "programs" -> LearnScreen(onBack = nav::back, onCourse = { nav.go("course:$it") })
                         "course" -> CourseScreen(
                             id = arg,

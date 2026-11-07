@@ -22,14 +22,62 @@ class Store(private val ctx: Context) {
     fun signIn(uid: String, email: String, refreshToken: String, remote: RemoteProfile? = null) {
         update(reschedule = true) { cur ->
             val base = if (cur.ownerUid.isNotEmpty() && cur.ownerUid != uid) AppData.fresh() else cur
-            val withProfile = if (remote == null) base else base.copy(
-                nickname = remote.nickname.take(20),
-                relationship = remote.relationship,
-                about = remote.about.take(200),
-                concerns = remote.concerns,
+            val withProfile = if (remote == null) base else {
+                val done = remote.onboarded && remote.scores.isNotEmpty()
+                val scores = remote.scores.ifEmpty { base.scores }
+                base.copy(
+                    nickname = remote.nickname.take(20).ifBlank { base.nickname },
+                    relationship = remote.relationship,
+                    about = remote.about.take(200),
+                    concerns = remote.concerns,
+                    onboarded = done || base.onboarded,
+                    answers = remote.answers.ifEmpty { base.answers },
+                    scores = scores,
+                    startDay = if (remote.startDay > 0L) remote.startDay else base.startDay,
+                    remindersEnabled = if (done) remote.remindersEnabled else base.remindersEnabled,
+                    // Re-assessments on this device are not uploaded, so start the history from the saved scores.
+                    scoreHistory = if (base.scoreHistory.isNotEmpty()) base.scoreHistory
+                    else if (done) listOf(ScoreSnapshot(if (remote.startDay > 0L) remote.startDay else base.startDay, scores))
+                    else emptyList(),
+                )
+            }
+            // No saved profile in Firebase yet (new account): upload what we have as soon as we're in.
+            withProfile.copy(
+                signedIn = true, ownerUid = uid, ownerEmail = email, refreshToken = refreshToken,
+                profileDirty = remote == null || base.profileDirty,
             )
-            withProfile.copy(signedIn = true, ownerUid = uid, ownerEmail = email, refreshToken = refreshToken)
         }
+    }
+
+    /** Everything that is stored online, built from the device copy. */
+    fun remoteProfile(d: AppData = data) = RemoteProfile(
+        nickname = d.nickname,
+        relationship = d.relationship,
+        concerns = d.concerns,
+        about = d.about,
+        onboarded = d.onboarded,
+        answers = d.answers,
+        scores = d.scores,
+        startDay = d.startDay,
+        remindersEnabled = d.remindersEnabled,
+    )
+
+    /** Marks the profile as changed so it is uploaded (and retried later if it fails). */
+    fun markProfileChanged() = update { it.copy(profileDirty = true) }
+
+    /** Uploads the profile if there are unsynced changes. Safe to call repeatedly. */
+    suspend fun pushProfileIfNeeded(): SyncResult<Unit>? {
+        val d = data
+        if (!d.signedIn || !d.profileDirty || d.ownerUid.isBlank()) return null
+        val sent = remoteProfile(d)
+        val s = freshSession()
+        val res: SyncResult<Unit> = when (s) {
+            is AuthResult.Ok -> ProfileSync.save(s.token, s.uid.ifBlank { d.ownerUid }, sent)
+            is AuthResult.Fail -> SyncResult.Fail(s.message)
+        }
+        // Only clear the flag if nothing changed while we were uploading.
+        if (res is SyncResult.Ok && remoteProfile() == sent) update { it.copy(profileDirty = false) }
+        return res
     }
 
     fun signOut() {

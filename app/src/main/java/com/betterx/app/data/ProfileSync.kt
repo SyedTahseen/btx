@@ -8,6 +8,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
@@ -20,6 +21,11 @@ data class RemoteProfile(
     val relationship: String,
     val concerns: List<String>,
     val about: String = "",
+    val onboarded: Boolean = false,
+    val answers: Map<String, Int> = emptyMap(),
+    val scores: Map<String, Int> = emptyMap(),
+    val startDay: Long = 0L,
+    val remindersEnabled: Boolean = true,
 )
 
 sealed class SyncResult<out T> {
@@ -89,6 +95,11 @@ object ProfileSync {
                             putJsonObject("nickname") { put("stringValue", p.nickname) }
                             putJsonObject("relationship") { put("stringValue", p.relationship) }
                             putJsonObject("about") { put("stringValue", p.about) }
+                            putJsonObject("onboarded") { put("booleanValue", p.onboarded) }
+                            putJsonObject("startDay") { put("integerValue", p.startDay.toString()) }
+                            putJsonObject("remindersEnabled") { put("booleanValue", p.remindersEnabled) }
+                            putJsonObject("answers") { intMap(p.answers) }
+                            putJsonObject("scores") { intMap(p.scores) }
                             putJsonObject("concerns") {
                                 putJsonObject("arrayValue") {
                                     put("values", buildJsonArray {
@@ -103,6 +114,14 @@ object ProfileSync {
             }
         }
         return commit(idToken, pid, body.toString())
+    }
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.intMap(m: Map<String, Int>) {
+        putJsonObject("mapValue") {
+            putJsonObject("fields") {
+                m.forEach { (k, v) -> putJsonObject(k) { put("integerValue", v.toString()) } }
+            }
+        }
     }
 
     /** Removes the saved profile (called before the account itself is deleted). */
@@ -134,6 +153,27 @@ object ProfileSync {
         val concerns = (((f["concerns"] as? JsonObject)?.get("arrayValue") as? JsonObject)?.get("values") as? JsonArray)
             ?.mapNotNull { ((it as? JsonObject)?.get("stringValue") as? JsonPrimitive)?.contentOrNull }
             .orEmpty()
-        return RemoteProfile(str("nickname").orEmpty(), str("relationship") ?: "Single", concerns, str("about").orEmpty())
+        fun bool(k: String) = (((f[k] as? JsonObject)?.get("booleanValue")) as? JsonPrimitive)?.booleanOrNull
+        fun long(k: String) = (((f[k] as? JsonObject)?.get("integerValue")) as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
+        fun ints(k: String): Map<String, Int> =
+            (((f[k] as? JsonObject)?.get("mapValue") as? JsonObject)?.get("fields") as? JsonObject)
+                ?.mapNotNull { (key, v) ->
+                    val n = (((v as? JsonObject)?.get("integerValue")) as? JsonPrimitive)?.contentOrNull?.toIntOrNull()
+                    if (n == null) null else key to n
+                }?.toMap().orEmpty()
+        val answers = ints("answers")
+        val scores = ints("scores")
+        return RemoteProfile(
+            nickname = str("nickname").orEmpty(),
+            relationship = str("relationship") ?: "Single",
+            concerns = concerns,
+            about = str("about").orEmpty(),
+            // Profiles saved by older versions have no "onboarded" flag: they count as done only if the results are there.
+            onboarded = bool("onboarded") ?: scores.isNotEmpty(),
+            answers = answers,
+            scores = scores,
+            startDay = long("startDay") ?: 0L,
+            remindersEnabled = bool("remindersEnabled") ?: true,
+        )
     }
 }

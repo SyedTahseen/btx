@@ -205,6 +205,7 @@ fun AssessScreen(onBack: () -> Unit) {
                         answers = answers.toMap(),
                         scores = scores,
                         scoreHistory = it.scoreHistory + ScoreSnapshot(today(), scores),
+                        profileDirty = true,
                     )
                 }
                 onBack()

@@ -136,9 +136,9 @@ fun OnboardingScreen() {
     var step by remember { mutableIntStateOf(0) }
     var adult by remember { mutableStateOf(false) }
     var about by remember { mutableStateOf(store.data.about) }
-    var rel by remember { mutableStateOf("Single") }
+    var rel by remember { mutableStateOf(store.data.relationship) }
     var remindersOn by remember { mutableStateOf(true) }
-    val concerns = remember { mutableStateListOf<String>() }
+    val concerns = remember { mutableStateListOf<String>().apply { addAll(store.data.concerns) } }
     val answers = remember { mutableStateMapOf<String, Int>() }
 
     val pages = remember { Content.questions.chunked(3) }
@@ -325,6 +325,7 @@ fun OnboardingScreen() {
                             scoreHistory = listOf(ScoreSnapshot(day, scores)),
                             startDay = day,
                             remindersEnabled = remindersOn,
+                            profileDirty = true, // uploaded to Firebase right away (see AppRoot)
                         )
                     }
                 }

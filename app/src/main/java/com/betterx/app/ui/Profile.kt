@@ -399,14 +399,17 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
             }
             nick = profile.nickname
             about = profile.about
+            // Upload the whole profile (including the assessment results), not just the edited fields.
+            val full = store.remoteProfile()
             val session = store.freshSession()
             val res: SyncResult<Unit> = when (session) {
-                is AuthResult.Ok -> ProfileSync.save(session.token, session.uid.ifBlank { d.ownerUid }, profile)
+                is AuthResult.Ok -> ProfileSync.save(session.token, session.uid.ifBlank { d.ownerUid }, full)
                 is AuthResult.Fail -> SyncResult.Fail(session.message)
             }
             when (res) {
-                is SyncResult.Ok -> { saveFailed = false; saveMsg = "Saved." }
+                is SyncResult.Ok -> { store.update { it.copy(profileDirty = false) }; saveFailed = false; saveMsg = "Saved." }
                 is SyncResult.Fail -> {
+                    store.update { it.copy(profileDirty = true) }
                     saveFailed = true
                     saveMsg = "Saved on this device, but not online yet: ${res.message}"
                 }

@@ -88,6 +88,7 @@ import androidx.compose.ui.unit.sp
 import com.betterx.app.data.Auth
 import com.betterx.app.data.AuthResult
 import com.betterx.app.data.ProfileSync
+import com.betterx.app.data.RemoteProfile
 import com.betterx.app.data.SyncResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -153,7 +154,14 @@ fun AuthScreen() {
                     }
                 } else {
                     // Restore the saved profile (nickname, relationship, goals). If it can't be loaded, sign in anyway.
-                    val remote = (ProfileSync.load(r.token, r.uid) as? SyncResult.Ok)?.value
+                    val loaded = ProfileSync.load(r.token, r.uid)
+                    // On a new phone / different account, signing in without the saved profile would send the user
+                    // through onboarding again and overwrite it. Stop and let them retry instead.
+                    if (loaded is SyncResult.Fail && store.data.ownerUid != r.uid) {
+                        error = loaded.message
+                        return
+                    }
+                    val remote = (loaded as? SyncResult.Ok)?.value
                     store.signIn(r.uid, r.email.ifBlank { cleanEmail }, r.refreshToken, remote)
                     // Brand new account with no saved profile yet: use the name typed on the sign-up screen.
                     if (name.isNotBlank() && store.data.nickname.isBlank()) {
@@ -205,6 +213,10 @@ fun AuthScreen() {
                 Mode.SignUp -> when (val r = Auth.signUp(cleanEmail, pw)) {
                     is AuthResult.Fail -> error = r.message
                     is AuthResult.Ok -> {
+                        // Save the name now (online + on the device); the rest of the profile follows after onboarding.
+                        val nick = name.trim().take(20)
+                        store.update { it.copy(nickname = nick) }
+                        ProfileSync.save(r.token, r.uid, RemoteProfile(nick, "Single", emptyList()))
                         mode = Mode.Verify
                     }
                 }

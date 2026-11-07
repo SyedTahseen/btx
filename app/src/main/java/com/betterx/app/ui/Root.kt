@@ -36,6 +36,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,10 @@ import androidx.compose.ui.unit.dp
 fun AppRoot() {
     val store = LocalStore.current
     val d = store.data
+    // Upload any profile changes that haven't reached Firebase yet; retries on each app start while still unsynced.
+    LaunchedEffect(d.signedIn, d.profileDirty) {
+        if (d.signedIn && d.profileDirty) store.pushProfileIfNeeded()
+    }
     // Surface gives every Text a readable default colour on the black background.
     Surface(
         Modifier.fillMaxSize(),

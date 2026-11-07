@@ -18,7 +18,7 @@ The run log prints the APK size. The APK is signed with the debug key (fine for 
 ## Accounts (email + verification, profile, change password)
 Accounts use **Firebase Authentication** through its REST API (no SDK, so the app stays small).
 Firebase sends the verification and reset emails itself.
-Your email and a small profile (nickname, relationship, goals) are stored in Firebase.
+Your email and a small profile (name, about, relationship, goals, onboarding answers and scores) are stored in Firebase, so signing in on any phone skips onboarding.
 Plans, check-ins, chats and progress stay encrypted on the device and are never uploaded.
 
 - **Email:** sign up > verification email > user opens the link > taps "I've verified my email" > in. Sign-in is blocked until verified.

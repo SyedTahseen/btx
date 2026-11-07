@@ -72,6 +72,8 @@ data class AppData(
     val ownerUid: String = "",
     val ownerEmail: String = "",
     val refreshToken: String = "",
+    // True when the profile changed on the device and hasn't reached Firebase yet (retried automatically).
+    val profileDirty: Boolean = false,
 ) {
     companion object {
         fun fresh() = AppData(startDay = today())

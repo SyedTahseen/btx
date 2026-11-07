@@ -72,3 +72,10 @@ Screens slide in from the right and tabs cross-fade (`ui/Root.kt`). Navigation i
 - **Content review**: have a licensed sex therapist/clinician review all lesson and exercise text, and the coach's replies, before launch.
 - **Play Store policy**: keep content educational (no explicit material), complete the Data safety form (health data), and add a privacy policy and in-app account/data deletion info.
 - **Hardening ideas**: biometric unlock, SQLCipher/Room for larger data, ProGuard/R8 rules, crash reporting that excludes health data.
+
+## Gemini coach
+Add your key to `local.properties` (it is git-ignored): `GEMINI_API_KEY=your_key` (optional `GEMINI_MODEL=gemini-3.5-flash-lite`), or set the `GEMINI_API_KEY` environment variable, then rebuild.
+With no key the on-device coach is used. Crisis/abuse safety replies always stay on the device, and any Gemini failure falls back to the on-device coach.
+A key inside an APK can be extracted: in Google AI Studio / Cloud Console restrict it to the Generative Language API and to package `com.betterx.app` + your signing SHA-1, set a quota, and move to a backend before a public launch.
+
+A default Gemini key is currently hardcoded as the fallback in `app/build.gradle.kts`; `local.properties` overrides it. Remove it from there before sharing the source.

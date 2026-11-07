@@ -38,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.betterx.app.data.ChatMsg
 import com.betterx.app.data.Content
-import com.betterx.app.data.LocalCoach
 import com.betterx.app.data.buildCoachContext
 import com.betterx.app.data.defaultCoach
 import com.betterx.app.data.today
@@ -85,7 +84,7 @@ fun CoachScreen(onExercise: (String) -> Unit, onPaywall: () -> Unit) {
             val r = try {
                 provider.reply(data.chat, ctx)
             } catch (e: Exception) {
-                LocalCoach.reply(data.chat, ctx)
+                com.betterx.app.data.CoachReply("I couldn't reach the coach right now. Please try again.")
             }
             store.update {
                 it.copy(chat = (it.chat + ChatMsg(false, r.text, System.currentTimeMillis(), r.exerciseId)).takeLast(200))

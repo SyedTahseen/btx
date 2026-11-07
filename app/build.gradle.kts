@@ -1,9 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
+
+// Gemini key: put GEMINI_API_KEY=... in local.properties (not committed) or set the GEMINI_API_KEY environment variable.
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val geminiKey: String = (localProps.getProperty("GEMINI_API_KEY") ?: System.getenv("GEMINI_API_KEY") ?: "AIzaSyDMxWgKivPLBs3v0I0pARrO-ofArmaYQg0").trim()
+val geminiModel: String = (localProps.getProperty("GEMINI_MODEL") ?: "gemini-3.5-flash-lite").trim()
 
 android {
     namespace = "com.betterx.app"
@@ -18,6 +28,9 @@ android {
         // Optional: URL of YOUR backend that proxies an LLM (never ship an API key in the app).
         // Leave empty to use the built-in on-device coach.
         buildConfigField("String", "COACH_API_URL", "\"\"")
+        // Gemini coach. Empty key = on-device coach is used instead.
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
+        buildConfigField("String", "GEMINI_MODEL", "\"$geminiModel\"")
         // Firebase Web API key (public identifier, not a secret).
         buildConfigField("String", "FIREBASE_API_KEY", "\"AIzaSyBu7p1uD2vmMUZY4S5qGZjmtNGM2WE-M24\"")
         // Keep only English strings from libraries (smaller APK).

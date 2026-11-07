@@ -2,11 +2,11 @@ package com.betterx.app.data
 
 import com.betterx.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -58,11 +58,10 @@ If the user mentions self-harm, suicide, abuse, coercion or assault, respond wit
 Respect consent in every answer. Remind the user you offer education and coaching, not medical care, when relevant."""
 }
 
-object LocalCoach : CoachProvider {
+/** Crisis and abuse replies. They are written by us, never sent to an AI, and always win. */
+object CoachSafety {
     private val crisis = Regex("""suicid|kill myself|end my life|want to die|self.?harm|hurt myself|don'?t want to live""")
     private val abuse = Regex("""\brape(d)?\b|sexual(ly)? assault|assaulted|\babus(e|ed|ive)\b|coerc|forced me|forces me|without my consent|made me do|didn'?t consent|pressures? me into""")
-    private val medical = Regex("""\bpain(ful)?\b|\bhurts?\b|bleed|\bblood\b|burning|discharge|\blump\b|swell|infection|\bstd\b|\bsti\b|\bnumb""")
-    private val meds = Regex("""medication|medicine|antidepress|\bssri|prescri|\bmeds\b""")
 
     /** Safety replies that must come first, whatever coach (local or remote) is in use. */
     fun safetyReply(text: String): CoachReply? {
@@ -83,121 +82,13 @@ object LocalCoach : CoachProvider {
             else -> null
         }
     }
-
-    override suspend fun reply(history: List<ChatMsg>, ctx: CoachContext): CoachReply {
-        delay(500)
-        val last = history.lastOrNull { it.fromUser }?.text.orEmpty()
-        return respond(last, ctx, history.count { it.fromUser })
-    }
-
-    fun respond(text: String, ctx: CoachContext, turn: Int): CoachReply {
-        safetyReply(text)?.let { return it }
-        val t = text.lowercase()
-        fun has(vararg k: String) = k.any { t.contains(it) }
-        val name = ctx.nickname.ifBlank { "there" }
-        val v = turn % 2
-        val partnerEx = if (ctx.partnered) "checkin_talk" else "needs_journal"
-
-        if (medical.containsMatchIn(t)) {
-            val med = if (meds.containsMatchIn(t)) " If a medication could be involved, please talk to your prescriber before changing anything, and don't stop it on your own." else ""
-            return CoachReply(
-                "Thanks for being open about that. Pain, bleeding, unusual discharge or a sudden change in how your body responds can have medical causes that are very treatable, " +
-                    "and no app or exercise should replace a check-up. I'd suggest seeing a doctor or sexual-health clinician soon.$med " +
-                    "In the meantime, keep things gentle and pressure-free, and stop anything that hurts. Want a calming practice that's safe to do while you arrange an appointment?",
-                "body_scan",
-            )
-        }
-        if (meds.containsMatchIn(t)) {
-            return CoachReply(
-                "Some medications can affect desire, arousal or climax, and it's common. Please don't stop or change anything on your own. " +
-                    "Bring it up with your prescriber; there are often alternatives or adjustments. Meanwhile I can help with calm and communication skills that make things easier. " +
-                    "When did you first notice a change?",
-                "box_breath",
-            )
-        }
-
-        return when {
-            has("hello", "hi ", "hey") && t.length < 20 || t.trim() in listOf("hi", "hey", "hello") -> CoachReply(
-                "Hi $name! I'm your BetterX coach. Tell me what's on your mind, whether it's anxiety, desire, communication or something else. Everything here stays private on your device.",
-            )
-            has("thank") -> CoachReply("Anytime. Small steps count. Want to do a quick check-in on how today felt?")
-            has("today", "my plan", "what should i do", "where do i start", "where to start", "next step") -> {
-                val ex = ctx.todayIds.firstOrNull()?.let { Content.exercise(it) }
-                if (ex != null) CoachReply(
-                    "Today's focus is ${Content.label(ctx.focus).lowercase()}. Start with \"${ex.title}\" (${ex.minutes} min). ${ex.why} How are you feeling about starting?",
-                    ex.id,
-                ) else CoachReply("Let's start with how you're feeling today. What's on your mind?")
-            }
-            has("progress", "how am i doing", "improv", "streak") -> {
-                val a = ctx.anxietyAvg?.let { " Your recent pressure check-ins average ${"%.1f".format(it)} out of 5." }.orEmpty()
-                CoachReply(
-                    if (ctx.streak > 0) "You're on a ${ctx.streak}-day practice streak. That consistency is what creates change.$a What feels different, even slightly?"
-                    else "Every plan starts with a first rep. Doing even 5 minutes today restarts your streak.$a What would make it easy to begin?",
-                )
-            }
-            has("anxi", "nervous", "panic", "pressure", "perform", "worry", "stress", "choke", "freeze") -> {
-                val calm = ctx.scores["Calm"]
-                val note = if (calm != null && calm < 55) " Your Calm score from the assessment ($calm/100) points the same way, so we've made it a priority." else ""
-                CoachReply(
-                    if (v == 0)
-                        "That pressure is really common, and it's a loop rather than a verdict on you: worry creates tension, tension changes how your body responds, and that feeds the worry.$note The fastest way to loosen it is to train your body's calm response outside the moment. Try the 5-minute breathing reset, then tell me: when does the worry show up first, before, during or after?"
-                    else
-                        "Thanks for naming that. Performance worry pulls your attention away from sensation, which makes everything harder.$note A short daily calm practice plus shifting focus from How am I doing? to What do I notice? helps a lot. When did you last feel relaxed and present?",
-                    "box_breath",
-                )
-            }
-            has("last longer", "too fast", "too quick", "early", "premature", "finish fast", "control") -> CoachReply(
-                "Wanting more control over pace is one of the most common goals I hear, and it's very trainable. Two things matter most: noticing your arousal early so you have choices, and staying relaxed rather than braced. " +
-                    "The arousal-scale practice builds exactly that, and pelvic floor awareness supports it. Small, patient reps beat willpower. How long has this been a concern, and does it happen in all situations or only some?",
-                "arousal_scale",
-            )
-            has("erecti", "arousal", "aroused", "lubricat", "stay hard", "get hard", "getting hard", "climax", "orgasm") -> CoachReply(
-                "Arousal and climax depend on a mix of mind, hormones, blood flow, nerves, sleep, alcohol and stress, and anxiety is one of the most common and most reversible factors. " +
-                    "If this is new, long-lasting (about 3 months or more) or comes with other symptoms, it's worth a check-up. Meanwhile, calming your nervous system and lifestyle basics help. " +
-                    "Has anything changed recently, like stress, sleep, alcohol or a new medication?",
-                "lifestyle",
-            )
-            has("desire", "libido", "sex drive", "not in the mood", "no interest", "low drive", "don't want") -> CoachReply(
-                "Desire shifts with stress, sleep, hormones, relationship dynamics, medications and routine. It isn't a switch that's broken. For many people it's responsive: it shows up after warmth or touch rather than before. " +
-                    "Mapping what helps you feel open is a great first step. What was different the last time you felt interested?",
-                "desire_map",
-            )
-            has("partner wants", "more often", "less often", "reject", "mismatch", "different drive", "wants more", "wants less") -> CoachReply(
-                "A desire gap is one of the most common couple challenges, and nobody's the villain. The painful cycle is usually one person pursuing, one withdrawing, and both feeling rejected. " +
-                    "Naming the cycle together and widening what counts as intimacy often eases it. A structured check-in gives you a safe way to talk. How do you usually react when the topic comes up?",
-                partnerEx,
-            )
-            has("talk", "tell my", "communicat", "bring up", "awkward", "embarrass", "ashamed", "shy") -> CoachReply(
-                "It's hard because there's often shame and a fear of rejection, and almost nobody is taught how. A good formula: When ___, I feel ___, and I'd love ___. " +
-                    "Start with something you appreciate, pick a calm moment outside the bedroom, and keep it to one topic. Tell me the topic and I'll help you word your opening line.",
-                "hard_convo",
-            )
-            has("body", "insecur", "confiden", "ugly", "size", "weight", "self-conscious", "self conscious") -> CoachReply(
-                "Self-consciousness steals attention from sensation, which is where connection lives. Confidence usually grows from small proofs rather than pep talks: noticing the harsh commentary, questioning it, and treating your body with neutrality. " +
-                    "Today's short practice is a body-neutral check-in. What's the thought that shows up loudest?",
-                "body_kind",
-            )
-            has("distant", "disconnect", "lonely", "bored", "routine", "spark", "rut", "stuck") -> CoachReply(
-                "Feeling distant is a signal, not a failure. Often connection has been crowded out by routine and stress. Small rituals beat grand gestures: a daily check-in, an appreciation exchange, a low-pressure date. " +
-                    "What did closeness look like when it felt good?",
-                if (ctx.partnered) "appreciation" else "solo_connect",
-            )
-            else -> CoachReply(
-                when (v) {
-                    0 -> "I want to understand properly so I can tailor this. Could you tell me when it tends to happen, what you notice in your body and thoughts, and how long it's been going on?"
-                    else -> "Thanks for sharing that. To make sure I point you in the right direction: what's the one thing you'd most like to be different a month from now?"
-                },
-                ctx.todayIds.firstOrNull(),
-            )
-        }
-    }
 }
 
-/** Calls YOUR backend, which should hold the LLM key and apply CoachPrompt.SYSTEM. Falls back to the on-device coach. */
+/** Calls YOUR backend, which should hold the LLM key and apply CoachPrompt.SYSTEM. Shows a short retry message if it can't be reached. */
 class ProxyCoach(private val url: String) : CoachProvider {
     override suspend fun reply(history: List<ChatMsg>, ctx: CoachContext): CoachReply {
         // Safety replies never leave the device and always win.
-        LocalCoach.safetyReply(history.lastOrNull { it.fromUser }?.text.orEmpty())?.let { return it }
+        CoachSafety.safetyReply(history.lastOrNull { it.fromUser }?.text.orEmpty())?.let { return it }
         return withContext(Dispatchers.IO) {
             try {
                 val body = buildJsonObject {
@@ -230,11 +121,103 @@ class ProxyCoach(private val url: String) : CoachProvider {
                 val text = conn.inputStream.bufferedReader().use { it.readText() }
                 CoachReply(Json.parseToJsonElement(text).jsonObject["reply"]!!.jsonPrimitive.content)
             } catch (e: Exception) {
-                LocalCoach.reply(history, ctx)
+                CoachReply("I couldn't reach the coach right now. Please check your internet connection and try again.")
             }
         }
     }
 }
 
-fun defaultCoach(): CoachProvider =
-    if (BuildConfig.COACH_API_URL.isNotBlank()) ProxyCoach(BuildConfig.COACH_API_URL) else LocalCoach
+/** Answers with Google Gemini. Safety replies stay on-device; if Gemini can't be reached a short retry message is shown. */
+class GeminiCoach(private val apiKey: String, private val model: String) : CoachProvider {
+    override suspend fun reply(history: List<ChatMsg>, ctx: CoachContext): CoachReply {
+        CoachSafety.safetyReply(history.lastOrNull { it.fromUser }?.text.orEmpty())?.let { return it }
+        return withContext(Dispatchers.IO) {
+            try {
+                CoachReply(ask(history, ctx))
+            } catch (e: Exception) {
+                android.util.Log.w("GeminiCoach", "Gemini failed: ${e.message}")
+                CoachReply("I couldn't reach the coach right now. Please check your internet connection and try again.")
+            }
+        }
+    }
+
+    private fun systemText(ctx: CoachContext): String = buildString {
+        append(CoachPrompt.SYSTEM)
+        append("\n\nAbout this user (private, use only to personalise):")
+        if (ctx.nickname.isNotBlank()) append("\n- Nickname: ${ctx.nickname}")
+        append("\n- In a relationship: ${if (ctx.partnered) "yes" else "no"}")
+        if (ctx.concerns.isNotEmpty()) append("\n- Main concerns: ${ctx.concerns.joinToString()}")
+        if (ctx.scores.isNotEmpty()) append("\n- Assessment scores (0-100): ${ctx.scores.entries.joinToString { "${it.key} ${it.value}" }}")
+        append("\n- Current focus: ${ctx.focus}")
+        append("\n- Practice streak: ${ctx.streak} days")
+        append("\nReply in plain text, no markdown, no lists, 3-6 short sentences.")
+    }
+
+    private fun ask(history: List<ChatMsg>, ctx: CoachContext): String {
+        // Gemini wants alternating turns that start with the user.
+        val turns = ArrayList<Pair<String, String>>()
+        history.takeLast(20).forEach { m ->
+            val role = if (m.fromUser) "user" else "model"
+            if (turns.isEmpty() && role == "model") return@forEach
+            if (turns.isNotEmpty() && turns.last().first == role) {
+                turns[turns.size - 1] = role to (turns.last().second + "\n" + m.text)
+            } else turns.add(role to m.text)
+        }
+        if (turns.isEmpty() || turns.last().first != "user") error("no user turn")
+
+        val body = buildJsonObject {
+            putJsonObject("systemInstruction") { putJsonArray("parts") { addJsonObject { put("text", systemText(ctx)) } } }
+            putJsonArray("contents") {
+                turns.forEach { (role, text) ->
+                    addJsonObject {
+                        put("role", role)
+                        putJsonArray("parts") { addJsonObject { put("text", text) } }
+                    }
+                }
+            }
+            putJsonObject("generationConfig") {
+                put("temperature", 0.7)
+                put("maxOutputTokens", 600)
+            }
+            // Sexual-wellness talk is the point of the app; only the highest-risk explicit content is blocked.
+            putJsonArray("safetySettings") {
+                addJsonObject {
+                    put("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT")
+                    put("threshold", "BLOCK_ONLY_HIGH")
+                }
+            }
+        }.toString()
+
+        val conn = (URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 10_000
+            readTimeout = 30_000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("x-goog-api-key", apiKey)
+        }
+        try {
+            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            val code = conn.responseCode
+            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (code !in 200..299) error("HTTP $code ${text.take(200)}")
+            val parts = Json.parseToJsonElement(text).jsonObject["candidates"]?.jsonArray?.firstOrNull()
+                ?.jsonObject?.get("content")?.jsonObject?.get("parts")?.jsonArray
+            val reply = parts?.joinToString("") { it.jsonObject["text"]?.jsonPrimitive?.content.orEmpty() }?.trim().orEmpty()
+            if (reply.isEmpty()) error("empty reply (blocked?)")
+            return reply
+        } finally {
+            conn.disconnect()
+        }
+    }
+}
+
+fun defaultCoach(): CoachProvider = when {
+    BuildConfig.GEMINI_API_KEY.isNotBlank() -> GeminiCoach(BuildConfig.GEMINI_API_KEY, BuildConfig.GEMINI_MODEL)
+    BuildConfig.COACH_API_URL.isNotBlank() -> ProxyCoach(BuildConfig.COACH_API_URL)
+    else -> object : CoachProvider {
+        override suspend fun reply(history: List<ChatMsg>, ctx: CoachContext): CoachReply =
+            CoachSafety.safetyReply(history.lastOrNull { it.fromUser }?.text.orEmpty())
+                ?: CoachReply("The coach isn't set up yet. Please try again later.")
+    }
+}

@@ -133,6 +133,9 @@ private fun TagInput(
     val keyboard = LocalSoftwareKeyboardController.current
     val noRipple = remember { MutableInteractionSource() }
     var focused by remember { mutableStateOf(false) }
+    // First backspace on an empty field highlights the last tag, the second one removes it.
+    var armed by remember { mutableStateOf(false) }
+    LaunchedEffect(input, tags.size, focused) { armed = false }
     LaunchedEffect(focused, input, tags.size) {
         if (focused) {
             kotlinx.coroutines.delay(250)
@@ -158,10 +161,11 @@ private fun TagInput(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             tags.forEach { t ->
+                val marked = armed && t == tags.last()
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(BX.Mint.copy(alpha = 0.18f))
+                        .background(BX.Mint.copy(alpha = if (marked) 0.5f else 0.18f))
                         .clickable { onRemove(t) }
                         .padding(horizontal = 12.dp, vertical = 7.dp),
                 ) {
@@ -191,7 +195,8 @@ private fun TagInput(
                     .onFocusChanged { focused = it.isFocused }
                     .onKeyEvent { e ->
                         if (e.type == KeyEventType.KeyDown && e.key == Key.Backspace && input.isEmpty() && tags.isNotEmpty()) {
-                            onRemove(tags.last()); true
+                            if (armed) { armed = false; onRemove(tags.last()) } else armed = true
+                            true
                         } else false
                     },
             )

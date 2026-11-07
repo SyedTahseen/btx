@@ -1,6 +1,8 @@
 package com.betterx.app.ui
 
 import android.app.TimePickerDialog
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -38,6 +40,8 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
@@ -93,6 +97,11 @@ import com.betterx.app.data.SyncResult
 import kotlinx.coroutines.launch
 
 private enum class Page { Main, Edit }
+
+// Fill these in when the pages are ready. While a link is blank the row just says "coming soon".
+private const val FAQ_URL = ""
+private const val TERMS_URL = ""
+private const val PRIVACY_URL = ""
 
 private val Danger = Color(0xFFD64535)
 private val IconInk = Color(0xFFD9D9DC)
@@ -401,6 +410,18 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
         }
     }
 
+    fun openLink(url: String) {
+        if (url.isBlank()) {
+            Toast.makeText(ctx, "Coming soon", Toast.LENGTH_SHORT).show()
+        } else {
+            try {
+                ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            } catch (e: Exception) {
+                Toast.makeText(ctx, "Couldn't open the link", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     fun setDaily(v: Boolean) {
         store.update(reschedule = true) { it.copy(remindersEnabled = v) }
         if (v) askNotifications()
@@ -494,6 +515,29 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
                         icon = { GlyphIcon(Icons.Filled.Settings) },
                         title = "Change password",
                         onClick = { showPassword = true },
+                        trailing = { Chevron() },
+                    )
+                }
+
+                GroupCard {
+                    SettingsRow(
+                        icon = { GlyphIcon(Icons.Filled.Info) },
+                        title = "FAQ",
+                        onClick = { openLink(FAQ_URL) },
+                        trailing = { Chevron() },
+                    )
+                    RowDivider()
+                    SettingsRow(
+                        icon = { GlyphIcon(Icons.Filled.List) },
+                        title = "Terms of Service",
+                        onClick = { openLink(TERMS_URL) },
+                        trailing = { Chevron() },
+                    )
+                    RowDivider()
+                    SettingsRow(
+                        icon = { GlyphIcon(Icons.Filled.Lock) },
+                        title = "Privacy Policy",
+                        onClick = { openLink(PRIVACY_URL) },
                         trailing = { Chevron() },
                     )
                 }

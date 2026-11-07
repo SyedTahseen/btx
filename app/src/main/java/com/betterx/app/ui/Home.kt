@@ -14,7 +14,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -223,6 +228,40 @@ fun HomeScreen(
     val initial = d.nickname.trim().firstOrNull()?.uppercase() ?: "B"
     val count = animatedCount(streak)
 
+    // Swiping the plan list itself also moves the sheet: swipe up to expand, swipe down at the top to collapse.
+    val sheetScroll = remember {
+        object : NestedScrollConnection {
+            var acc = 0f
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput || expanded || available.y >= 0f) return Offset.Zero
+                acc += available.y
+                if (acc < -24f) {
+                    expanded = true
+                    acc = 0f
+                    return Offset(0f, available.y) // this swipe only expands; the list scrolls with the next one
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                // Whatever the list couldn't use while pulling down means it is at the top.
+                if (source != NestedScrollSource.UserInput || !expanded || available.y <= 0f) return Offset.Zero
+                acc += available.y
+                if (acc > 24f) {
+                    expanded = false
+                    acc = 0f
+                    return Offset(0f, available.y)
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                acc = 0f
+                return Velocity.Zero
+            }
+        }
+    }
+
     Column(Modifier.fillMaxSize()) {
         // ---------------------------------------------------------- dark top area
         AnimatedVisibility(
@@ -399,6 +438,7 @@ fun HomeScreen(
                 Column(
                     Modifier
                         .weight(1f)
+                        .nestedScroll(sheetScroll)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 20.dp)
                         .padding(top = 8.dp, bottom = 130.dp),

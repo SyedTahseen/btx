@@ -258,7 +258,13 @@ fun AuthScreen() {
                             Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Spacer(Modifier.height(32.dp))
+                            Spacer(Modifier.height(24.dp))
+                            androidx.compose.foundation.Image(
+                                painter = androidx.compose.ui.res.painterResource(com.betterx.app.R.drawable.ic_logo),
+                                contentDescription = "BetterX",
+                                modifier = Modifier.size(72.dp),
+                            )
+                            Spacer(Modifier.height(16.dp))
 
                             Text(
                                 when (m) {

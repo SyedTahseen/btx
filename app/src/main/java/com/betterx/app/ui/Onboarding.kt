@@ -171,6 +171,11 @@ fun OnboardingScreen() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(com.betterx.app.R.drawable.ic_logo),
+                        contentDescription = "BetterX",
+                        modifier = Modifier.size(84.dp),
+                    )
                     Text("BetterX · sexual wellness", style = MaterialTheme.typography.labelLarge, color = muted)
                     Text(
                         "Understand it.\nPractice it.\nImprove it.",

@@ -29,7 +29,10 @@ data class GPost(
     val ts: Long,
     val likes: Int = 0,
     val replies: Int = 0,
-)
+) {
+    /** Tags the author added. Stored comma-separated in the existing `topic` field, so older posts and rules keep working. */
+    val tags: List<String> get() = topic.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+}
 
 /** A reply, stored at ghostPosts/{postId}/replies/{id}. */
 data class GReply(
@@ -44,7 +47,7 @@ data class GReply(
  * The shared Ghost community, through the Firestore REST API with the signed-in user's Firebase ID token.
  *
  * Layout:
- *   ghostPosts/{postId}                 uid, alias, topic, title, body, ts, likeCount, replyCount
+ *   ghostPosts/{postId}                 uid, alias, topic (comma-separated tags), title, body, ts, likeCount, replyCount
  *   ghostPosts/{postId}/replies/{id}    uid, alias, text, ts
  *   ghostPosts/{postId}/likes/{uid}     ts            (one document per member, so a like can't be counted twice)
  *   ghostReports/{id}                   postId, replyId, reporter, ts
@@ -323,11 +326,11 @@ object GhostRepo {
         }
 
     /** Returns an error message, or null when the post was shared. */
-    suspend fun createPost(store: Store, topic: String, title: String, body: String): String? {
+    suspend fun createPost(store: Store, tags: List<String>, title: String, body: String): String? {
         if (System.currentTimeMillis() - lastPostAt < 20_000) return "Please wait a moment before posting again."
         return when (
             val r = withSession(store) { token, uid ->
-                val post = GPost(UUID.randomUUID().toString(), uid, Content.newAlias(), topic, title, body, System.currentTimeMillis())
+                val post = GPost(UUID.randomUUID().toString(), uid, Content.newAlias(), tags.joinToString(","), title, body, System.currentTimeMillis())
                 val res = GhostApi.createPost(token, post)
                 if (res is SyncResult.Ok) {
                     posts = listOf(post) + posts

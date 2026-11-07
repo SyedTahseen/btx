@@ -5,12 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Refresh
@@ -32,13 +32,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.betterx.app.data.Content
 import com.betterx.app.data.GhostRepo
 import kotlinx.coroutines.launch
 
 private val piiRegex = Regex("""(https?://|www\.)\S+|\S+@\S+\.\S+|\+?\d[\d\s\-().]{7,}\d|@\w{3,}""")
 
 private fun hasPii(text: String) = piiRegex.containsMatchIn(text)
+
+private const val MAX_TAGS = 5
+
+private fun cleanTag(raw: String) = raw.trim().trimStart('#').lowercase().replace(Regex("[^\\p{L}\\p{N}_-]"), "").take(20)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TagFooter(tags: List<String>, modifier: Modifier = Modifier) {
+    if (tags.isEmpty()) return
+    FlowRow(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        tags.forEach { Text("#$it", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary) }
+    }
+}
 
 private const val PII_MESSAGE = "Please remove links, emails or phone numbers."
 
@@ -49,11 +61,10 @@ fun GhostScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
     val d = store.data
     val scope = rememberCoroutineScope()
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    var topic by remember { mutableStateOf("All") }
 
     LaunchedEffect(Unit) { GhostRepo.refresh(store) }
 
-    val posts = GhostRepo.posts.filter { it.id !in d.hidden && (topic == "All" || it.topic == topic) }
+    val posts = GhostRepo.posts.filter { it.id !in d.hidden }
 
     ScrollPage(
         "Ghost",
@@ -61,18 +72,8 @@ fun GhostScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
             IconButton(onClick = { scope.launch { GhostRepo.refresh(store) } }) {
                 Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
             }
-            IconButton(onClick = onNew) { Icon(Icons.Filled.Add, contentDescription = "Share anonymously") }
         },
     ) {
-        Text(
-            "Anonymous, real experiences. Every post and reply gets a random name; it's never shown with your profile.",
-            color = muted,
-        )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            (listOf("All") + Content.ghostTopics).forEach {
-                FilterChip(selected = topic == it, onClick = { topic = it }, label = { Text(it) })
-            }
-        }
         PrimaryButton("Share anonymously", onClick = onNew)
 
         val err = GhostRepo.error
@@ -87,7 +88,7 @@ fun GhostScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
 
         posts.forEach { p ->
             SoftCard(onClick = { onOpen(p.id) }) {
-                Text("${p.alias} · ${p.topic} · ${relTime(p.ts)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                Text("${p.alias} · ${relTime(p.ts)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                 Text(p.title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 4.dp))
                 Text(p.body, style = MaterialTheme.typography.bodySmall, maxLines = 3, color = muted)
                 Text(
@@ -95,6 +96,7 @@ fun GhostScreen(onOpen: (String) -> Unit, onNew: () -> Unit) {
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(top = 8.dp),
                 )
+                TagFooter(p.tags, Modifier.padding(top = 6.dp))
             }
         }
         Text(
@@ -132,9 +134,10 @@ fun PostScreen(id: String, onBack: () -> Unit) {
 
     ScrollPage("Ghost", onBack) {
         SoftCard {
-            Text("${post.alias} · ${post.topic} · ${relTime(post.ts)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+            Text("${post.alias} · ${relTime(post.ts)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
             Text(post.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
             Text(post.body, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
+            TagFooter(post.tags, Modifier.padding(top = 10.dp))
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
                 IconButton(onClick = {
                     if (!liking) {
@@ -244,21 +247,24 @@ fun NewPostScreen(onBack: () -> Unit) {
     val store = LocalStore.current
     val scope = rememberCoroutineScope()
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    var topic by remember { mutableStateOf(Content.ghostTopics.first()) }
+    var tags by remember { mutableStateOf(listOf<String>()) }
+    var tagInput by remember { mutableStateOf("") }
     var title by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var sending by remember { mutableStateOf(false) }
+
+    fun commitTag() {
+        val t = cleanTag(tagInput)
+        if (t.isNotEmpty() && t !in tags && tags.size < MAX_TAGS) tags = tags + t
+        tagInput = ""
+    }
 
     ScrollPage("Share anonymously", onBack) {
         Text(
             "Your post gets a random name and isn't shown with your profile. Don't include names, contact details or links.",
             color = muted,
         )
-        FieldLabel("Topic")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Content.ghostTopics.forEach { FilterChip(selected = topic == it, onClick = { topic = it }, label = { Text(it) }) }
-        }
         FieldLabel("Title")
         ProfileField(title, { title = it.take(80); error = null }, "A short headline")
         FieldLabel("Your experience")
@@ -270,6 +276,29 @@ fun NewPostScreen(onBack: () -> Unit) {
             minHeight = 150.dp,
             shape = RoundedCornerShape(24.dp),
         )
+        FieldLabel("Tags (optional)")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                ProfileField(
+                    value = tagInput,
+                    onValueChange = {
+                        error = null
+                        if (it.endsWith(",") || it.endsWith(" ") || it.endsWith("\n")) {
+                            tagInput = it
+                            commitTag()
+                        } else tagInput = it.take(20)
+                    },
+                    placeholder = "e.g. anxiety, communication",
+                )
+            }
+            TextButton(onClick = { commitTag() }, enabled = tags.size < MAX_TAGS) { Text("Add") }
+        }
+        if (tags.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                tags.forEach { t -> FilterChip(selected = true, onClick = { tags = tags - t }, label = { Text("#$t  ✕") }) }
+            }
+        }
+        Text("Up to $MAX_TAGS tags. Tap a tag to remove it.", style = MaterialTheme.typography.bodySmall, color = muted)
         error?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
@@ -280,11 +309,12 @@ fun NewPostScreen(onBack: () -> Unit) {
                     sending -> {}
                     title.isBlank() -> error = "Add a title."
                     body.trim().length < 10 -> error = "Write a little more (at least 10 characters)."
-                    hasPii("$title $body") -> error = PII_MESSAGE
+                    hasPii("$title $body $tagInput ${tags.joinToString(" ")}") -> error = PII_MESSAGE
                     else -> {
+                        val finalTags = (tags + cleanTag(tagInput)).filter { it.isNotEmpty() }.distinct().take(MAX_TAGS)
                         sending = true
                         scope.launch {
-                            val err = GhostRepo.createPost(store, topic, title.trim(), body.trim())
+                            val err = GhostRepo.createPost(store, finalTags, title.trim(), body.trim())
                             sending = false
                             if (err == null) onBack() else error = err
                         }

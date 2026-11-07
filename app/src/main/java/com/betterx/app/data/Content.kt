@@ -403,7 +403,6 @@ object Content {
     fun course(id: String) = courses.firstOrNull { it.id == id }
 
     // --------------------------------------------------------------- community
-    val ghostTopics = listOf("Anxiety", "Desire", "Communication", "Body", "Connection", "Wins")
 
     val aliasAdjectives = listOf("Quiet", "Kind", "Steady", "Brave", "Gentle", "Calm", "Bright", "Honest")
     val aliasAnimals = listOf("Otter", "Heron", "Lynx", "Fox", "Wren", "Finch", "Panda", "Seal")

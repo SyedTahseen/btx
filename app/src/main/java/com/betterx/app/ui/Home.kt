@@ -228,6 +228,18 @@ fun HomeScreen(
     val initial = d.nickname.trim().firstOrNull()?.uppercase() ?: "B"
     val count = animatedCount(streak)
 
+    // Swipe up / down on any non-scrolling part of the screen (streak area, sheet header, handle) to expand or collapse.
+    fun Modifier.sheetSwipe(): Modifier = this.pointerInput(Unit) {
+        var acc = 0f
+        detectVerticalDragGestures(
+            onDragStart = { acc = 0f },
+            onDragEnd = { if (acc < -30f) expanded = true else if (acc > 30f) expanded = false },
+        ) { change, dy ->
+            change.consume()
+            acc += dy
+        }
+    }
+
     // Swiping the plan list itself also moves the sheet: swipe up to expand, swipe down at the top to collapse.
     val sheetScroll = remember {
         object : NestedScrollConnection {
@@ -269,7 +281,7 @@ fun HomeScreen(
             enter = expandVertically(spring(stiffness = 300f)) + fadeIn(),
             exit = shrinkVertically(spring(stiffness = 300f)) + fadeOut(),
         ) {
-            Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            Column(Modifier.fillMaxWidth().sheetSwipe().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(0.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         Modifier
@@ -398,23 +410,14 @@ fun HomeScreen(
                     Modifier
                         .fillMaxWidth()
                         .height(28.dp)
-                        .pointerInput(Unit) {
-                            var acc = 0f
-                            detectVerticalDragGestures(
-                                onDragStart = { acc = 0f },
-                                onDragEnd = { if (acc < -30f) expanded = true else if (acc > 30f) expanded = false },
-                            ) { change, dy ->
-                                change.consume()
-                                acc += dy
-                            }
-                        }
+                        .sheetSwipe()
                         .clickable(role = Role.Button, onClickLabel = "Expand or collapse") { expanded = !expanded },
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(Modifier.width(40.dp).height(4.dp).clip(CircleShape).background(Color(0xFFDADADD)))
                 }
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                    Modifier.fillMaxWidth().sheetSwipe().padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SheetChipButton(Icons.AutoMirrored.Filled.List, if (showWeek) "Hide your week" else "See your week") {

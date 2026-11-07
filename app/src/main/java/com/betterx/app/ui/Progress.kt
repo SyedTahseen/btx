@@ -64,27 +64,17 @@ fun ProgressScreen(onCheckIn: () -> Unit, onReassess: () -> Unit) {
     val d = LocalStore.current.data
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val day = today()
-    val streak = Planner.streak(d, day)
     val minutes = d.completions.sumOf { it.minutes }
     val recent = d.checkIns.sortedBy { it.day }.takeLast(14)
     val first = d.scoreHistory.firstOrNull()?.scores ?: d.scores
     val latest = d.scoreHistory.lastOrNull()?.scores ?: d.scores
     val sinceAssess = d.scoreHistory.lastOrNull()?.let { day - it.day } ?: 0
 
-    val perDay = (13 downTo 0).map { off -> d.completions.filter { it.day == day - off }.sumOf { it.minutes } }
-    val labels = (13 downTo 0).map { off -> if (off % 3 == 0) LocalDate.ofEpochDay(day - off).dayOfMonth.toString() else "" }
 
     ScrollPage("Progress") {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatTile("$streak", "day streak", Modifier.weight(1f))
             StatTile("${d.completions.size}", "practices", Modifier.weight(1f))
-            StatTile("$minutes", "minutes", Modifier.weight(1f))
-        }
-
-        SoftCard {
-            Text("Practice, last 14 days", style = MaterialTheme.typography.titleSmall)
-            Spacer(Modifier.height(14.dp))
-            PracticeBars(perDay, labels, highlight = 13)
+            StatTile("$minutes", "total minutes", Modifier.weight(1f))
         }
 
         SoftCard {
@@ -141,7 +131,6 @@ fun ProgressScreen(onCheckIn: () -> Unit, onReassess: () -> Unit) {
                 }
             }
         }
-        Disclaimer()
     }
 }
 

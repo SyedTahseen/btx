@@ -132,6 +132,7 @@ fun MainNav() {
                         "home" -> HomeScreen(
                             onExercise = { nav.go("exercise:$it") },
                             onCheckIn = { nav.go("checkin") },
+                            onNotifications = { nav.go("notifications") },
                             onPrograms = { nav.go("programs") },
                             onProfile = { nav.go("profile") },
                             onPaywall = { nav.go("paywall") },
@@ -151,6 +152,13 @@ fun MainNav() {
                         )
                         "exercise" -> ExerciseScreen(id = arg, onBack = nav::back)
                         "checkin" -> CheckInScreen(onBack = nav::back)
+                        "notifications" -> NotificationsScreen(
+                            onBack = nav::back,
+                            onCheckIn = { nav.go("checkin") },
+                            onExercise = { nav.go("exercise:$it") },
+                            onReassess = { nav.go("assess") },
+                            onProfile = { nav.go("profile") },
+                        )
                         "assess" -> AssessScreen(onBack = nav::back)
                         "post" -> PostScreen(id = arg, onBack = nav::back)
                         "newpost" -> NewPostScreen(onBack = nav::back)

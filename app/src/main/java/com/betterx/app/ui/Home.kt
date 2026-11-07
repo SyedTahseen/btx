@@ -205,6 +205,7 @@ private fun SheetChipButton(icon: ImageVector, description: String, onClick: () 
 fun HomeScreen(
     onExercise: (String) -> Unit,
     onCheckIn: () -> Unit,
+    onNotifications: () -> Unit,
     onPrograms: () -> Unit,
     onProfile: () -> Unit,
     onPaywall: () -> Unit,
@@ -226,6 +227,7 @@ fun HomeScreen(
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val initial = d.nickname.trim().firstOrNull()?.uppercase() ?: "B"
     val count = animatedCount(streak)
+    val hasNew = notificationsFor(d, day).any { it.action != null }
 
     // The whole screen is one scrolling page: the dark streak area scrolls away (fading and drifting up a little)
     // and the white plan sheet slides up over it.
@@ -266,11 +268,11 @@ fun HomeScreen(
                         Modifier
                             .size(46.dp)
                             .clip(CircleShape)
-                            .clickable(role = Role.Button, onClickLabel = "Daily check-in", onClick = onCheckIn),
+                            .clickable(role = Role.Button, onClickLabel = "Notifications", onClick = onNotifications),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Filled.Notifications, contentDescription = "Daily check-in", tint = Color(0xFFB4B5BA))
-                        if (!checkedIn) {
+                        Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = Color(0xFFB4B5BA))
+                        if (hasNew) {
                             Box(
                                 Modifier
                                     .align(Alignment.TopEnd)

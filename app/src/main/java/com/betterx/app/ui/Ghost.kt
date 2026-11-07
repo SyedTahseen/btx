@@ -16,7 +16,12 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
@@ -124,6 +129,9 @@ private fun TagInput(
     onRemove: (String) -> Unit,
 ) {
     val bring = remember { BringIntoViewRequester() }
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val noRipple = remember { MutableInteractionSource() }
     var focused by remember { mutableStateOf(false) }
     LaunchedEffect(focused, input, tags.size) {
         if (focused) {
@@ -137,12 +145,14 @@ private fun TagInput(
             .bringIntoViewRequester(bring)
             .clip(RoundedCornerShape(24.dp))
             .background(if (focused) BX.Chip else BX.Card)
+            .clickable(interactionSource = noRipple, indication = null) {
+                focusRequester.requestFocus()
+                keyboard?.show()
+            }
+            .heightIn(min = 56.dp)
             .padding(horizontal = 14.dp, vertical = 10.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
-        if (tags.isEmpty() && input.isEmpty()) {
-            Text("Type a tag, then comma or Add", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp, modifier = Modifier.padding(start = 6.dp))
-        }
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -166,9 +176,18 @@ private fun TagInput(
                 cursorBrush = SolidColor(BX.Mint),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { onCommit() }),
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (tags.isEmpty() && input.isEmpty()) {
+                            Text("Add tags", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp, maxLines = 1)
+                        }
+                        inner()
+                    }
+                },
                 modifier = Modifier
                     .widthIn(min = 110.dp)
-                    .padding(horizontal = 6.dp)
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                    .focusRequester(focusRequester)
                     .onFocusChanged { focused = it.isFocused }
                     .onKeyEvent { e ->
                         if (e.type == KeyEventType.KeyDown && e.key == Key.Backspace && input.isEmpty() && tags.isNotEmpty()) {
@@ -400,9 +419,8 @@ fun NewPostScreen(onBack: () -> Unit) {
             shape = RoundedCornerShape(24.dp),
         )
         FieldLabel("Tags (optional)")
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) {
-                TagInput(
+        Box(Modifier.fillMaxWidth()) {
+            TagInput(
                     tags = tags,
                     input = tagInput,
                     onInput = {
@@ -415,8 +433,6 @@ fun NewPostScreen(onBack: () -> Unit) {
                     onCommit = { commitTag() },
                     onRemove = { t -> tags = tags - t },
                 )
-            }
-            TextButton(onClick = { commitTag() }, enabled = tags.size < MAX_TAGS) { Text("Add") }
         }
         error?.let {
             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())

@@ -19,6 +19,7 @@ data class RemoteProfile(
     val nickname: String,
     val relationship: String,
     val concerns: List<String>,
+    val about: String = "",
 )
 
 sealed class SyncResult<out T> {
@@ -87,6 +88,7 @@ object ProfileSync {
                         putJsonObject("fields") {
                             putJsonObject("nickname") { put("stringValue", p.nickname) }
                             putJsonObject("relationship") { put("stringValue", p.relationship) }
+                            putJsonObject("about") { put("stringValue", p.about) }
                             putJsonObject("concerns") {
                                 putJsonObject("arrayValue") {
                                     put("values", buildJsonArray {
@@ -132,6 +134,6 @@ object ProfileSync {
         val concerns = (((f["concerns"] as? JsonObject)?.get("arrayValue") as? JsonObject)?.get("values") as? JsonArray)
             ?.mapNotNull { ((it as? JsonObject)?.get("stringValue") as? JsonPrimitive)?.contentOrNull }
             .orEmpty()
-        return RemoteProfile(str("nickname").orEmpty(), str("relationship") ?: "Single", concerns)
+        return RemoteProfile(str("nickname").orEmpty(), str("relationship") ?: "Single", concerns, str("about").orEmpty())
     }
 }

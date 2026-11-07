@@ -45,6 +45,7 @@ data class AppData(
     val onboarded: Boolean = false,
     val nickname: String = "",
     val relationship: String = "Single",
+    val about: String = "",
     val concerns: List<String> = emptyList(),
     val answers: Map<String, Int> = emptyMap(),
     val scores: Map<String, Int> = emptyMap(),

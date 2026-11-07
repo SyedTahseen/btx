@@ -135,7 +135,7 @@ fun OnboardingScreen() {
 
     var step by remember { mutableIntStateOf(0) }
     var adult by remember { mutableStateOf(false) }
-    var nick by remember { mutableStateOf(store.data.nickname) }
+    var about by remember { mutableStateOf(store.data.about) }
     var rel by remember { mutableStateOf("Single") }
     var remindersOn by remember { mutableStateOf(true) }
     val concerns = remember { mutableStateListOf<String>() }
@@ -180,12 +180,6 @@ fun OnboardingScreen() {
                         textAlign = TextAlign.Center,
                     )
                     HeroArt()
-                    Text(
-                        "Private by design: no real name, encrypted on this device, screenshots blocked.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = muted,
-                        textAlign = TextAlign.Center,
-                    )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = adult, onCheckedChange = { adult = it })
                         Text(
@@ -197,10 +191,11 @@ fun OnboardingScreen() {
                 step == 1 -> {
                     Text("A little about you", style = MaterialTheme.typography.headlineSmall)
                     OutlinedTextField(
-                        value = nick,
-                        onValueChange = { nick = it.take(20) },
-                        label = { Text("What should we call you? (optional)") },
-                        singleLine = true,
+                        value = about,
+                        onValueChange = { about = it.take(200) },
+                        label = { Text("About you (optional)") },
+                        minLines = 2,
+                        maxLines = 4,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text("Relationship", style = MaterialTheme.typography.titleMedium)
@@ -317,7 +312,7 @@ fun OnboardingScreen() {
                     store.update(reschedule = true) {
                         it.copy(
                             onboarded = true,
-                            nickname = nick.trim(),
+                            about = about.trim(),
                             relationship = rel,
                             concerns = concerns.toList(),
                             answers = answers.toMap(),

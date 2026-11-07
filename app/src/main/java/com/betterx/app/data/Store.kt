@@ -25,6 +25,7 @@ class Store(private val ctx: Context) {
             val withProfile = if (remote == null) base else base.copy(
                 nickname = remote.nickname.take(20),
                 relationship = remote.relationship,
+                about = remote.about.take(200),
                 concerns = remote.concerns,
             )
             withProfile.copy(signedIn = true, ownerUid = uid, ownerEmail = email, refreshToken = refreshToken)

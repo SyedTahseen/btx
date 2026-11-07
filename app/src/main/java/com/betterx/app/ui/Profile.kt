@@ -97,18 +97,27 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
         // Edit a draft, then Save: it is stored on this device and in your online profile.
         var nick by remember { mutableStateOf(d.nickname) }
         var rel by remember { mutableStateOf(d.relationship) }
+        var about by remember { mutableStateOf(d.about) }
         val goals = remember { mutableStateListOf<String>().apply { addAll(d.concerns) } }
         var saving by remember { mutableStateOf(false) }
         var saveMsg by remember { mutableStateOf<String?>(null) }
         var saveFailed by remember { mutableStateOf(false) }
-        val dirty = nick.trim() != d.nickname || rel != d.relationship || goals.toSet() != d.concerns.toSet()
+        val dirty = nick.trim() != d.nickname || about.trim() != d.about || rel != d.relationship || goals.toSet() != d.concerns.toSet()
         SoftCard {
             OutlinedTextField(
                 value = nick,
                 onValueChange = { nick = it.take(20); saveMsg = null },
-                label = { Text("Nickname") },
+                label = { Text("Name") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = about,
+                onValueChange = { about = it.take(200); saveMsg = null },
+                label = { Text("About you (optional)") },
+                minLines = 2,
+                maxLines = 4,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             )
             Text("Relationship", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -137,15 +146,16 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
             Button(
                 enabled = dirty && !saving,
                 onClick = {
-                    val profile = RemoteProfile(nick.trim(), rel, goals.toList())
+                    val profile = RemoteProfile(nick.trim(), rel, goals.toList(), about.trim())
                     saving = true
                     saveMsg = null
                     scope.launch {
                         // Always keep it on the device first, then sync online.
                         store.update(reschedule = true) {
-                            it.copy(nickname = profile.nickname, relationship = profile.relationship, concerns = profile.concerns)
+                            it.copy(nickname = profile.nickname, about = profile.about, relationship = profile.relationship, concerns = profile.concerns)
                         }
                         nick = profile.nickname
+                        about = profile.about
                         val session = store.freshSession()
                         val res: SyncResult<Unit> = when (session) {
                             is AuthResult.Ok -> ProfileSync.save(session.token, session.uid.ifBlank { d.ownerUid }, profile)

@@ -150,7 +150,6 @@ fun AuthScreen() {
                         error = "Not verified yet. Open the link in the email we sent you (check your spam folder)."
                     } else {
                         mode = Mode.Verify
-                        info = "Please verify your email to continue."
                     }
                 } else {
                     // Restore the saved profile (nickname, relationship, goals). If it can't be loaded, sign in anyway.
@@ -207,7 +206,6 @@ fun AuthScreen() {
                     is AuthResult.Fail -> error = r.message
                     is AuthResult.Ok -> {
                         mode = Mode.Verify
-                        info = "Verification email sent."
                     }
                 }
                 Mode.Forgot -> when (val r = Auth.sendReset(cleanEmail)) {
@@ -417,7 +415,7 @@ fun AuthScreen() {
                                             when (val r = Auth.resendVerification(cleanEmail, pw)) {
                                                 is AuthResult.Fail -> error = r.message
                                                 is AuthResult.Ok ->
-                                                    if (r.token.isNotEmpty()) handle(r) else info = "A new verification email is on its way."
+                                                    if (r.token.isNotEmpty()) handle(r) else info = "Email sent again."
                                             }
                                             busy = false
                                         }

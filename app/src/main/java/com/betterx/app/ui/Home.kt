@@ -19,6 +19,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.mutableIntStateOf
@@ -111,6 +114,28 @@ private fun domainColor(domain: String): Color =
 
 internal fun inkOn(c: Color): Color = if (c == BX.Blue || c == BX.Coral || c == BX.Violet) Color.White else Color.Black
 
+/** Yellow, mint and blue cards overlapping at the screen edge: the brand mark from the reference. */
+@Composable
+private fun CardStack(modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier
+            .width(60.dp)
+            .height(140.dp)
+            .clickable(role = Role.Button, onClickLabel = "Programs", onClick = onClick),
+    ) {
+        listOf(BX.Yellow to 0, BX.Mint to 18, BX.Blue to 36).forEach { (c, x) ->
+            Box(
+                Modifier
+                    .offset(x = x.dp)
+                    .fillMaxHeight()
+                    .width(60.dp)
+                    .clip(RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp))
+                    .background(c),
+            )
+        }
+    }
+}
+
 @Composable
 private fun HeroPill(text: String, icon: ImageVector?, primary: Boolean, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
@@ -120,6 +145,7 @@ private fun HeroPill(text: String, icon: ImageVector?, primary: Boolean, onClick
             .height(48.dp)
             .clip(CircleShape)
             .background(if (primary) BX.Pill else BX.Card)
+            .then(if (primary) Modifier else Modifier.border(1.dp, Color(0xFF34363A), CircleShape))
             .clickable(interactionSource = src, indication = null, role = Role.Button, onClick = onClick)
             .padding(start = if (icon != null) 9.dp else 18.dp, end = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -156,7 +182,7 @@ private fun PlanRow(ex: Exercise, done: Boolean, index: Int, onClick: () -> Unit
                     .align(Alignment.BottomEnd)
                     .size(14.dp)
                     .clip(CircleShape)
-                    .background(if (done) BX.Success else BX.Yellow)
+                    .background(if (done) BX.Mint else BX.Yellow)
                     .border(2.dp, Color.White, CircleShape),
             )
         }
@@ -242,18 +268,32 @@ fun HomeScreen(
     Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
         // ---------------------------------------------------------- dark top area
         run {
+          Box(
+            Modifier
+                .fillMaxWidth()
+                .onSizeChanged { topPx = it.height }
+                .graphicsLayer {
+                    val p = if (topPx > 0) (scroll.value / topPx.toFloat()).coerceIn(0f, 1f) else 0f
+                    alpha = 1f - p
+                    translationY = scroll.value * 0.4f
+                    scaleX = 1f - 0.06f * p
+                    scaleY = 1f - 0.06f * p
+                }
+                // Soft teal-blue glow in the top-right corner, as in the reference.
+                .drawBehind {
+                    drawRect(
+                        Brush.radialGradient(
+                            listOf(Color(0x552A9DBA), Color.Transparent),
+                            center = Offset(size.width * 0.92f, size.height * 0.2f),
+                            radius = size.width * 0.9f,
+                        ),
+                    )
+                },
+          ) {
+            // The three colour cards peeking in from the edge (tap = Programs).
+            CardStack(Modifier.align(Alignment.TopEnd).padding(top = 72.dp), onPrograms)
             Column(
-                Modifier
-                    .fillMaxWidth()
-                    .onSizeChanged { topPx = it.height }
-                    .graphicsLayer {
-                        val p = if (topPx > 0) (scroll.value / topPx.toFloat()).coerceIn(0f, 1f) else 0f
-                        alpha = 1f - p
-                        translationY = scroll.value * 0.4f
-                        scaleX = 1f - 0.06f * p
-                        scaleY = 1f - 0.06f * p
-                    }
-                    .padding(horizontal = 24.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -294,7 +334,7 @@ fun HomeScreen(
                     color = muted,
                 )
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text("$count", fontSize = 68.sp, fontWeight = FontWeight.Medium, lineHeight = 76.sp)
+                    Text("$count", fontSize = 68.sp, fontWeight = FontWeight.SemiBold, lineHeight = 76.sp)
                     Text(
                         if (streak == 1) " day" else " days",
                         fontSize = 30.sp,
@@ -306,7 +346,7 @@ fun HomeScreen(
                     Planner.insight(d, day),
                     style = MaterialTheme.typography.bodySmall,
                     color = muted,
-                    modifier = Modifier.padding(top = 2.dp),
+                    modifier = Modifier.padding(top = 2.dp, end = 56.dp),
                 )
 
                 Row(
@@ -319,6 +359,7 @@ fun HomeScreen(
 
                 Spacer(Modifier.height(20.dp))
             }
+          }
         }
 
         // ---------------------------------------------------------- white sheet
@@ -328,7 +369,7 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
                     .heightIn(min = viewport)
-                    .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                    .clip(RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp))
                     .background(BX.Sheet),
             ) {
                 // Handle: tap to glide between the streak area and the plan.

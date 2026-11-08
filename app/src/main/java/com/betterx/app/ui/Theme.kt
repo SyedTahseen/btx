@@ -121,6 +121,8 @@ private val AppShapes = Shapes(
     small = RoundedCornerShape(14.dp),
     medium = RoundedCornerShape(20.dp),
     large = RoundedCornerShape(26.dp),
+    extraSmall = RoundedCornerShape(14.dp), // text fields, menus
+    extraLarge = RoundedCornerShape(32.dp), // dialogs
 )
 
 @Composable

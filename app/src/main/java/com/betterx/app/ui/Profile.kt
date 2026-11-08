@@ -165,22 +165,6 @@ private fun TrailingValue(text: String) {
 }
 
 @Composable
-private fun BxSwitch(checked: Boolean) {
-    Switch(
-        checked = checked,
-        onCheckedChange = null,
-        colors = SwitchDefaults.colors(
-            checkedThumbColor = BX.Bg,
-            checkedTrackColor = BX.Accent,
-            checkedBorderColor = Color.Transparent,
-            uncheckedThumbColor = Color(0xFFA0A1A6),
-            uncheckedTrackColor = BX.Chip,
-            uncheckedBorderColor = Color.Transparent,
-        ),
-    )
-}
-
-@Composable
 private fun SettingsRow(
     icon: @Composable () -> Unit,
     title: String,

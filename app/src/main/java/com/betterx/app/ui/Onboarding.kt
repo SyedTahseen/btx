@@ -288,7 +288,7 @@ fun OnboardingScreen() {
                                 color = muted,
                             )
                         }
-                        Switch(checked = remindersOn, onCheckedChange = { remindersOn = it; if (it) askNotifications() })
+                        BxSwitch(remindersOn) { remindersOn = it; if (it) askNotifications() }
                     }
                 }
             }

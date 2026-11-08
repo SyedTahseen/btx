@@ -1,5 +1,8 @@
 package com.betterx.app.ui
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -186,7 +189,9 @@ fun OnboardingScreen() {
                     )
                     HeroArt()
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = adult, onCheckedChange = { adult = it })
+                        Box(
+                            Modifier.clip(CircleShape).clickable(role = Role.Checkbox, onClickLabel = "Confirm") { adult = !adult }.padding(8.dp),
+                        ) { AuthCheckbox(adult) }
                         Text(
                             "I'm 18 or older, and I understand BetterX offers education and coaching, not medical care.",
                             style = MaterialTheme.typography.bodySmall,
@@ -195,18 +200,19 @@ fun OnboardingScreen() {
                 }
                 step == 1 -> {
                     Text("A little about you", style = MaterialTheme.typography.headlineSmall)
-                    OutlinedTextField(
+                    FieldLabel("About you (optional)")
+                    ProfileField(
                         value = about,
                         onValueChange = { about = it.take(200) },
-                        label = { Text("About you (optional)") },
-                        minLines = 2,
-                        maxLines = 4,
-                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = "Anything you'd like us to know",
+                        singleLine = false,
+                        minHeight = 96.dp,
+                        shape = RoundedCornerShape(24.dp),
                     )
                     Text("Relationship", style = MaterialTheme.typography.titleMedium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("Single", "Dating", "Partnered").forEach {
-                            FilterChip(selected = rel == it, onClick = { rel = it }, label = { Text(it) })
+                            BxFilterChip(selected = rel == it, onClick = { rel = it }, label = { Text(it) })
                         }
                     }
                     Text(
@@ -220,7 +226,7 @@ fun OnboardingScreen() {
                     Text("Choose all that apply.", color = muted)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Content.concerns.forEach { c ->
-                            FilterChip(
+                            BxFilterChip(
                                 selected = c.id in concerns,
                                 onClick = { if (c.id in concerns) concerns.remove(c.id) else concerns.add(c.id) },
                                 label = { Text(c.label) },

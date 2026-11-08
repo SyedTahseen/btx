@@ -115,7 +115,7 @@ private fun ProgramCard(index: Int, course: Course, done: Int, forYou: Boolean, 
                         modifier = Modifier
                             .padding(start = 8.dp)
                             .clip(CircleShape)
-                            .background(Color(0xCC141517))
+                            .background(BX.Bg.copy(alpha = 0.8f))
                             .padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }

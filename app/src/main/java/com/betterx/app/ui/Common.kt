@@ -1,5 +1,9 @@
 package com.betterx.app.ui
 
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FilterChip
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -91,7 +95,7 @@ fun ScreenHeader(
     if (onBack == null) {
         // Tab screens: big bold title on the left, actions on the right (like "Cards" + "Order a card" in the reference).
         Row(
-            Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -135,6 +139,36 @@ fun ScreenHeader(
             content = actions,
         )
     }
+}
+
+/** Round selectable chip used for every choice list (goals, relationship, day picker). */
+@Composable
+fun BxFilterChip(selected: Boolean, onClick: () -> Unit, label: @Composable () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = label,
+        shape = CircleShape,
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = BX.Chip,
+            labelColor = Color.White,
+            selectedContainerColor = BX.Pill,
+            selectedLabelColor = Color.Black,
+        ),
+        border = null,
+    )
+}
+
+/** Round suggestion chip (quick replies). */
+@Composable
+fun BxAssistChip(onClick: () -> Unit, label: @Composable () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        label = label,
+        shape = CircleShape,
+        colors = AssistChipDefaults.assistChipColors(containerColor = BX.Chip, labelColor = Color.White),
+        border = null,
+    )
 }
 
 /** The app's toggle: mint track when on, quiet grey when off. Use everywhere instead of a bare Switch. */
@@ -248,7 +282,7 @@ fun PrimaryButton(
             containerColor = BX.Pill,
             contentColor = Color.Black,
             disabledContainerColor = BX.Chip,
-            disabledContentColor = Color(0xFF77787D),
+            disabledContentColor = BX.Disabled,
         ),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -384,7 +418,7 @@ fun PillNav(items: List<NavItem>, selected: String, onSelect: (String) -> Unit, 
                 val sel = item.route == selected
                 val weight by animateFloatAsState(if (sel) 1.9f else 1f, spring(dampingRatio = 0.8f, stiffness = 380f), label = "navW")
                 val bg by animateColorAsState(if (sel) BX.Pill else Color.Transparent, tween(220), label = "navBg")
-                val tint by animateColorAsState(if (sel) Color.Black else Color(0xFFB4B5BA), tween(220), label = "navTint")
+                val tint by animateColorAsState(if (sel) Color.Black else BX.IconMuted, tween(220), label = "navTint")
                 val src = remember { MutableInteractionSource() }
                 Row(
                     Modifier

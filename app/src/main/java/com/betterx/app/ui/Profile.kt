@@ -100,7 +100,6 @@ import kotlinx.coroutines.launch
 
 private enum class Page { Main, Edit, Faq, Terms, Privacy }
 
-private val Danger = Color(0xFFD64535)
 private val IconInk = Color(0xFFD9D9DC)
 private val dayNames = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
@@ -253,7 +252,7 @@ private fun PlanCard(premium: Boolean, onClick: () -> Unit) {
                 .pressScale(src)
                 .height(40.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF141517))
+                .background(BX.Bg)
                 .clickable(interactionSource = src, indication = null, role = Role.Button, onClick = onClick)
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center,
@@ -534,9 +533,9 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, tint = Danger, modifier = Modifier.size(20.dp))
+                    Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, tint = BX.Danger, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Log out", color = Danger, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                    Text("Log out", color = BX.Danger, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
                 }
 
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -575,14 +574,14 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
                 FieldLabel("Relationship")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("Single", "Dating", "Partnered").forEach { r ->
-                        FilterChip(selected = rel == r, onClick = { rel = r; saveMsg = null }, label = { Text(r) })
+                        BxFilterChip(selected = rel == r, onClick = { rel = r; saveMsg = null }, label = { Text(r) })
                     }
                 }
 
                 FieldLabel("Your goals")
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Content.concerns.forEach { c ->
-                        FilterChip(
+                        BxFilterChip(
                             selected = c.id in goals,
                             onClick = { if (c.id in goals) goals.remove(c.id) else goals.add(c.id); saveMsg = null },
                             label = { Text(c.label) },
@@ -615,7 +614,7 @@ fun ProfileScreen(onBack: () -> Unit, onPaywall: () -> Unit) {
             text = {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     dayNames.forEachIndexed { i, n ->
-                        FilterChip(
+                        BxFilterChip(
                             selected = d.weeklyCheckInDow == i + 1,
                             onClick = { store.update { it.copy(weeklyCheckInDow = i + 1) }; showDay = false },
                             label = { Text(n.take(3)) },
@@ -848,7 +847,7 @@ fun PaywallScreen(onBack: () -> Unit) {
                         .height(52.dp)
                         .pressScale(upgradeSrc)
                         .clip(CircleShape)
-                        .background(Color(0xFF141517))
+                        .background(BX.Bg)
                         .clickable(interactionSource = upgradeSrc, indication = null, role = Role.Button) {
                             Toast.makeText(ctx, "Pro purchases are coming soon.", Toast.LENGTH_SHORT).show()
                         },

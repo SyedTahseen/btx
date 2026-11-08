@@ -210,10 +210,10 @@ private fun SheetButton(text: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         interactionSource = src,
-        modifier = Modifier.fillMaxWidth().height(52.dp).pressScale(src),
+        modifier = Modifier.fillMaxWidth().height(56.dp).pressScale(src),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(containerColor = BX.SheetInk, contentColor = Color.White),
-    ) { Text(text, fontWeight = FontWeight.SemiBold, fontSize = 16.sp) }
+    ) { Text(text, fontWeight = FontWeight.SemiBold, fontSize = 17.sp) }
 }
 
 @Composable
@@ -313,7 +313,7 @@ fun HomeScreen(
                             .clickable(role = Role.Button, onClickLabel = "Notifications", onClick = onNotifications),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = Color(0xFFB4B5BA))
+                        Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = BX.IconMuted)
                         if (hasNew) {
                             Box(
                                 Modifier

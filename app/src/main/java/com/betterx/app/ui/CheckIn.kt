@@ -1,5 +1,6 @@
 package com.betterx.app.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,11 +46,14 @@ fun CheckInScreen(onBack: () -> Unit) {
         Scale("Confidence", "Low", "High", confidence) { confidence = it }
         Scale("Pressure or anxiety", "None", "A lot", anxiety) { anxiety = it }
         Scale("Closeness", "Distant", "Close", connection) { connection = it }
-        OutlinedTextField(
+        FieldLabel("Anything to remember? (optional)")
+        ProfileField(
             value = note,
             onValueChange = { note = it.take(300) },
-            label = { Text("Anything to remember? (optional)") },
-            modifier = Modifier.fillMaxWidth(),
+            placeholder = "A note for yourself",
+            singleLine = false,
+            minHeight = 96.dp,
+            shape = RoundedCornerShape(24.dp),
         )
         PrimaryButton(
             "Save check-in",

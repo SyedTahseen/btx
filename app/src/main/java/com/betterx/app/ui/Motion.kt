@@ -179,7 +179,7 @@ fun SwipeToConfirm(
             Icon(
                 if (progress > 0.9f) Icons.Filled.Check else Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Swipe to confirm",
-                tint = if (enabled) Color.Black else Color(0xFF777777),
+                tint = if (enabled) Color.Black else BX.Disabled,
             )
         }
     }

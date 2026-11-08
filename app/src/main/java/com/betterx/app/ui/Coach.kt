@@ -1,5 +1,15 @@
 package com.betterx.app.ui
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -103,7 +113,7 @@ fun CoachScreen(onExercise: (String) -> Unit, onPaywall: () -> Unit) {
         })
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
@@ -119,9 +129,9 @@ fun CoachScreen(onExercise: (String) -> Unit, onPaywall: () -> Unit) {
         }
 
         if (d.chat.isEmpty()) {
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Where do I start?", "I get anxious", "Our desire doesn't match", "How am I doing?").forEach { s ->
-                    AssistChip(onClick = { send(s) }, label = { Text(s) })
+                    BxAssistChip(onClick = { send(s) }, label = { Text(s) })
                 }
             }
         }
@@ -134,18 +144,29 @@ fun CoachScreen(onExercise: (String) -> Unit, onPaywall: () -> Unit) {
             )
         }
         if (!d.premium && remaining <= 0) {
-            OutlinedButton(onClick = onPaywall, modifier = Modifier.fillMaxWidth().padding(16.dp)) { Text("Unlock unlimited coaching") }
+            OutlinedButton(onClick = onPaywall, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) { Text("Unlock unlimited coaching") }
         } else {
-            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    placeholder = { Text("Message your coach") },
-                    maxLines = 4,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = { send(input) }, enabled = input.isNotBlank() && !sending) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = MaterialTheme.colorScheme.primary)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.Bottom) {
+                Box(Modifier.weight(1f)) {
+                    ProfileField(
+                        value = input,
+                        onValueChange = { input = it },
+                        placeholder = "Message your coach",
+                        singleLine = false,
+                        shape = RoundedCornerShape(28.dp),
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                val canSend = input.isNotBlank() && !sending
+                Box(
+                    Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(if (canSend) BX.Pill else BX.Chip)
+                        .clickable(enabled = canSend, role = Role.Button, onClickLabel = "Send") { send(input) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = if (canSend) Color.Black else BX.Disabled, modifier = Modifier.size(22.dp))
                 }
             }
         }

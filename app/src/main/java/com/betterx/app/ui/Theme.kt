@@ -43,7 +43,13 @@ object BX {
     val Violet = Color(0xFFA48BFF)
     val Rose = Color(0xFFFF7EB6)
     val Success = Color(0xFF19D81F)
+    val Danger = Color(0xFFFF8A7A)
     val Positive = Color(0xFF2E9B3E)
+
+    // Neutral greys used for icons and disabled states (one value each, used everywhere)
+    val IconMuted = Color(0xFFB4B5BA)
+    val Disabled = Color(0xFF77787D)
+    val Outline = Color(0xFF5A5B60)
 
     /** Highlight colour for small accents (progress, bars, links). */
     val Accent = Mint
@@ -120,7 +126,7 @@ private val Type = Typography(
 private val AppShapes = Shapes(
     small = RoundedCornerShape(14.dp),
     medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(26.dp),
+    large = RoundedCornerShape(28.dp),
     extraSmall = RoundedCornerShape(14.dp), // text fields, menus
     extraLarge = RoundedCornerShape(32.dp), // dialogs
 )

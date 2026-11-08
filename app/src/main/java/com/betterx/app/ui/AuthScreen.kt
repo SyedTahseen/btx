@@ -259,7 +259,7 @@ fun AuthScreen() {
                                 Spacer(Modifier.size(44.dp))
                             } else {
                                 RoundIconButton(onClick = { go(Mode.SignIn) }, description = "Back") {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color(0xFFB4B5BA), modifier = Modifier.size(22.dp))
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = BX.IconMuted, modifier = Modifier.size(22.dp))
                                 }
                             }
                             Spacer(Modifier.weight(1f))
@@ -598,7 +598,7 @@ private fun AuthButton(
             containerColor = BX.Pill,
             contentColor = Color.Black,
             disabledContainerColor = BX.Chip,
-            disabledContentColor = Color(0xFF77787D),
+            disabledContentColor = BX.Disabled,
         ),
     ) {
         Text(text, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
@@ -634,9 +634,9 @@ private fun RowScope.SocialButton(
 }
 
 @Composable
-private fun AuthCheckbox(checked: Boolean) {
+internal fun AuthCheckbox(checked: Boolean) {
     val bg by animateColorAsState(if (checked) BX.Pill else Color.Transparent, tween(160), label = "cbBg")
-    val ring by animateColorAsState(if (checked) BX.Pill else Color(0xFF5A5B60), tween(160), label = "cbRing")
+    val ring by animateColorAsState(if (checked) BX.Pill else BX.Outline, tween(160), label = "cbRing")
     Box(
         Modifier
             .size(22.dp)
